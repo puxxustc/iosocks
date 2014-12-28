@@ -500,10 +500,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		conn->tx_bytes = recv(conn->sock_local, conn->tx_buf, BUF_SIZE, 0);
 		if (conn->tx_bytes <= 0)
 		{
-			if (conn->tx_bytes < 0)
-			{
-				ERR("recv");
-			}
+			LOG("client disconnected");
 			ev_io_stop(EV_A_ &conn->w_local_write);
 			ev_io_stop(EV_A_ &conn->w_remote_read);
 			ev_io_stop(EV_A_ &conn->w_remote_write);
@@ -685,12 +682,9 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 	case CMD_RCVD:
 	{
 		ssize_t n = recv(conn->sock_remote, conn->rx_buf, BUF_SIZE, 0);
-		if (n <= 0)
+		if (n != 512)
 		{
-			if (n < 0)
-			{
-				ERR("recv");
-			}
+			LOG("SOCKS server disconnected");
 			ev_io_stop(EV_A_ &conn->w_local_read);
 			ev_io_stop(EV_A_ &conn->w_local_write);
 			ev_io_stop(EV_A_ &conn->w_remote_write);
@@ -728,10 +722,7 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 		conn->rx_bytes = recv(conn->sock_remote, conn->rx_buf, BUF_SIZE, 0);
 		if (conn->rx_bytes <= 0)
 		{
-			if (conn->rx_bytes < 0)
-			{
-				ERR("recv");
-			}
+			LOG("SOCKS server disconnected");
 			ev_io_stop(EV_A_ &conn->w_local_read);
 			ev_io_stop(EV_A_ &conn->w_local_write);
 			ev_io_stop(EV_A_ &conn->w_remote_write);
