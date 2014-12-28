@@ -28,7 +28,8 @@ void enc_init(enc_evp_t *evp, enc_method_t method, const void *key, size_t key_l
 	{
 	case enc_rc4:
 	{
-		rc4_init(&evp->evp.rc4, key, key_len);
+		rc4_init(&evp->enc_evp.rc4, key, key_len);
+		rc4_init(&evp->dec_evp.rc4, key, key_len);
 		break;
 	}
 	default:
@@ -46,7 +47,7 @@ void io_encrypt(void *stream, size_t len, enc_evp_t *evp)
 	{
 	case enc_rc4:
 	{
-		rc4_enc(stream, len, &evp->evp.rc4);
+		rc4_enc(stream, len, &evp->enc_evp.rc4);
 		break;
 	}
 	default:
@@ -64,7 +65,7 @@ void io_decrypt(void *stream, size_t len, enc_evp_t *evp)
 	{
 	case enc_rc4:
 	{
-		rc4_dec(stream, len, &evp->evp.rc4);
+		rc4_dec(stream, len, &evp->dec_evp.rc4);
 		break;
 	}
 	default:

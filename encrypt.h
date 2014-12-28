@@ -33,7 +33,7 @@ typedef struct
 	union
 	{
 		rc4_evp_t rc4;
-	} evp;
+	} enc_evp, dec_evp;
 } enc_evp_t;
 
 extern void enc_init(enc_evp_t *evp, enc_method_t method, const void *key, size_t key_len);
