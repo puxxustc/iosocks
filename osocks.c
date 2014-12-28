@@ -43,8 +43,11 @@
 typedef enum
 {
 	CLOSED = 0,
-	ESTAB = 1,
-	CLOSE_WAIT = 2
+	REQ_RCVD,
+	REQ_ERR,
+	CONNECTED,
+	ESTAB,
+	CLOSE_WAIT
 } state_t;
 
 // 连接控制块结构
@@ -89,8 +92,8 @@ struct
 
 int main(int argc, char **argv)
 {
-	const char *server_host = NULL;
-	const char *server_port = NULL;
+	const char *server_addr = "0.0.0.0";
+	const char *server_port = "8388";
 
 	for (int i = 1; i < argc; i++)
 	{
@@ -106,7 +109,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			server_host = argv[i + 1];
+			server_addr = argv[i + 1];
 			i++;
 		}
 		else if (strcmp(argv[i], "-p") == 0)
@@ -142,7 +145,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 	}
-	if ((server_host == NULL) || (server_port == NULL) || (server.key == NULL))
+	if ((server_addr == NULL) || (server_port == NULL) || (server.key == NULL))
 	{
 		help();
 		return 1;
@@ -154,7 +157,7 @@ int main(int argc, char **argv)
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	if (getaddrinfo(server_host, server_port, &hints, &res) != 0)
+	if (getaddrinfo(server_addr, server_port, &hints, &res) != 0)
 	{
 		LOG("Wrong server_host/server_port");
 		return 2;
@@ -216,8 +219,8 @@ static void help(void)
 {
 	printf("usage: osocks\n"
 		   "  -h, --help          show this help\n"
-		   "  -s <server_host>    host name or ip address of your remote server\n"
-		   "  -p <server_port>    port number of your remote server\n"
+		   "  -s <server_addr>    server address, default: 0.0.0.0\n"
+		   "  -p <server_port>    server port, default: 8388\n"
 		   "  -k <key>            encryption key\n"
 		   "");
 }
@@ -267,7 +270,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	{
 	case CLOSED:
 	{
-		// 命令格式
+		// iosocks 请求
 		// +------+------+------+
 		// | HOST | PORT |  IV  |
 		// +------+------+------+
@@ -277,7 +280,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		ssize_t rx_bytes = recv(conn->sock_local, conn->rx_buf, BUF_SIZE, 0);
 		if (rx_bytes != 512)
 		{
-			LOG("client disconnected");
+			ERR("recv");
 			close(conn->sock_local);
 			mem_delete(conn);
 			return;
@@ -287,7 +290,6 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		md5(conn->tx_buf, 240 + server.key_len, key);
 		enc_init(&conn->enc_evp, enc_rc4, key, 16);
 		io_decrypt(conn->rx_buf, 272, &conn->enc_evp);
-
 		const char *host = (const char *)conn->rx_buf;
 		const char *port = (const char *)conn->rx_buf + 257;
 		struct addrinfo hints;
@@ -297,7 +299,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		hints.ai_socktype = SOCK_STREAM;
 		if (getaddrinfo(host, port, &hints, &res) != 0)
 		{
-			// 回应格式
+			// iosocks 应答
 			// +----------+---------+
 			// | MD5(key) |   0     |
 			// +----------+---------+
@@ -305,9 +307,9 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			// +----------+---------+
 			bzero(conn->tx_buf, 16);
 			rand_bytes(conn->tx_buf + 16, 496);
-			conn->error = true;
 			conn->tx_bytes = 512;
 			io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
+			conn->state = REQ_ERR;
 			ev_io_start(EV_A_ &conn->w_local_write);
 		}
 		else
@@ -328,6 +330,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
 			conn->w_remote_write.data = (void *)conn;
 			ev_io_start(EV_A_ &conn->w_remote_write);
+			conn->state = REQ_RCVD;
 			connect(conn->sock_remote, (struct sockaddr *)res->ai_addr, res->ai_addrlen);
 			freeaddrinfo(res);
 		}
@@ -368,10 +371,11 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 
 	switch (conn->state)
 	{
-	case CLOSED:
+	case REQ_ERR:
+	case CONNECTED:
 	{
 		ssize_t tx_bytes = send(conn->sock_local, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
-		if (tx_bytes <= 0)
+		if (tx_bytes != conn->tx_bytes)
 		{
 			if (tx_bytes < 0)
 			{
@@ -381,7 +385,17 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 			mem_delete(conn);
 			return;
 		}
-		if (conn->error)
+		if (conn->state == CONNECTED)
+		{
+			conn->state = ESTAB;
+			ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
+			ev_io_init(&conn->w_remote_write, remote_write_cb, conn->sock_remote, EV_WRITE);
+			conn->w_remote_read.data = (void *)conn;
+			conn->w_remote_write.data = (void *)conn;
+			ev_io_start(EV_A_ &conn->w_local_read);
+			ev_io_start(EV_A_ &conn->w_remote_read);
+		}
+		else
 		{
 			conn->state = CLOSE_WAIT;
 			ev_timer *w_timer = (ev_timer *)mem_new(sizeof(ev_timer));
@@ -394,16 +408,6 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 			ev_timer_init(w_timer, closewait_cb, 1.0, 0);
 			w_timer->data = (void *)conn;
 			ev_timer_start(EV_A_ w_timer);
-		}
-		else
-		{
-			conn->state = ESTAB;
-			ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
-			ev_io_init(&conn->w_remote_write, remote_write_cb, conn->sock_remote, EV_WRITE);
-			conn->w_remote_read.data = (void *)conn;
-			conn->w_remote_write.data = (void *)conn;
-			ev_io_start(EV_A_ &conn->w_local_read);
-			ev_io_start(EV_A_ &conn->w_remote_read);
 		}
 		break;
 	}
@@ -421,6 +425,7 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 			mem_delete(conn);
 			return;
 		}
+		assert(n == conn->rx_bytes);
 		ev_io_start(EV_A_ &conn->w_remote_read);
 		break;
 	}
@@ -438,23 +443,30 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	ev_io_stop(EV_A_ w);
 
 	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn->state == REQ_RCVD);
+
 	int error = 0;
 	socklen_t len = sizeof(int);
-
 	getsockopt(w->fd, SOL_SOCKET, SO_ERROR, &error, &len);
 
-	if (error != 0)
-	{
-		conn->error = true;
-		close(conn->sock_remote);
-	}
-	// 回应格式
+	// iosocks 应答
 	// +----------+---------+
 	// | MD5(key) |   0     |
 	// +----------+---------+
 	// |    16    |   496   |
 	// +----------+---------+
-	md5(server.key, server.key_len, conn->tx_buf);
+	if (error == 0)
+	{
+		md5(server.key, server.key_len, conn->tx_buf);
+		conn->state = CONNECTED;
+	}
+	else
+	{
+		close(conn->sock_remote);
+		bzero(conn->tx_buf, 16);
+		conn->state = REQ_ERR;
+	}
 	rand_bytes(conn->tx_buf + 16, 496);
 	conn->tx_bytes = 512;
 	io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
@@ -512,7 +524,7 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents)
 		mem_delete(conn);
 		return;
 	}
-
+	assert(n == conn->rx_bytes);
 	ev_io_start(EV_A_ &conn->w_local_read);
 }
 
@@ -533,7 +545,7 @@ static bool setnonblock(int sock)
 
 static bool settimeout(int sock)
 {
-	struct timeval timeout = { .tv_sec = 1, .tv_usec = 0};
+	struct timeval timeout = { .tv_sec = 10, .tv_usec = 0};
 	if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval)) != 0)
 	{
 		return false;
