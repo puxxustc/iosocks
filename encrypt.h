@@ -22,7 +22,23 @@
 
 #include "rc4.h"
 
-#define encrypt rc4
-#define decrypt rc4
+typedef enum
+{
+	enc_rc4 = 0
+} enc_method_t;
+
+typedef struct
+{
+	enc_method_t method;
+	union
+	{
+		rc4_evp_t rc4;
+	} evp;
+} enc_evp_t;
+
+extern void enc_init(enc_evp_t *evp, enc_method_t method, const void *key, size_t key_len);
+extern void io_encrypt(void *stream, size_t len, enc_evp_t *evp);
+extern void io_decrypt(void *stream, size_t len, enc_evp_t *evp);
+
 
 #endif // ENCRYPT_H

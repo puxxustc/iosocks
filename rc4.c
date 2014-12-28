@@ -20,33 +20,33 @@
 #include <stdint.h>
 #include "rc4.h"
 
-void rc4(void *stream, size_t len, const void *key, size_t key_len)
+void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len)
 {
-	uint8_t s[256];
 	int i, j;
-
 	for (i = 0; i <= 255; i++)
 	{
-		s[i] = (uint8_t)i;
+		evp->s[i] = (uint8_t)i;
 	}
-	j = 0;
-	for (i = 0; i <= 255; i++)
+	for (i = 0, j = 0; i <= 255; i++)
 	{
-		j = (j + s[i] + ((uint8_t *)key)[i % key_len]) & 255;
-		uint8_t tmp = s[i];
-		s[i] = s[j];
-		s[j] = tmp;
+		j = (j + evp->s[i] + ((uint8_t *)key)[i % key_len]) & 255;
+		uint8_t tmp = evp->s[i];
+		evp->s[i] = evp->s[j];
+		evp->s[j] = tmp;
 	}
+	evp->i = 0;
+	evp->j = 0;
+}
 
-	i = 0;
-	j = 0;
+void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
+{
 	for (size_t k = 0; k < len; k++)
 	{
-		i = (i + 1) & 255;
-		j = (j + s[i]) & 255;
-		uint8_t tmp = s[i];
-		s[i] = s[j];
-		s[j] = tmp;
-		((uint8_t *)stream)[k] ^= s[(s[i] + s[j]) & 255];
+		evp->i = (evp->i + 1) & 255;
+		evp->j = (evp->j + evp->s[evp->i]) & 255;
+		uint8_t tmp = evp->s[evp->i];
+		evp->s[evp->i] = evp->s[evp->j];
+		evp->s[evp->j] = tmp;
+		((uint8_t *)stream)[k] ^= evp->s[(evp->s[evp->i] + evp->s[evp->j]) & 255];
 	}
 }

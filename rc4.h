@@ -21,7 +21,17 @@
 #define RC4_H
 
 #include <stddef.h>
+#include <stdint.h>
 
-extern void rc4(void *stream, size_t len, const void *key, size_t key_len);
+typedef struct
+{
+	uint8_t s[256];
+	int i;
+	int j;
+} rc4_evp_t;
+
+extern void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len);
+extern void rc4_enc(void *stream, size_t len, rc4_evp_t *evp);
+#define rc4_dec rc4_enc
 
 #endif // RC4_H

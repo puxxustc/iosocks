@@ -60,7 +60,7 @@ typedef struct
 	int sock_remote;
 	state_t state;
 	bool error;
-	uint8_t key[16];
+	enc_evp_t enc_evp;
 	uint8_t rx_buf[BUF_SIZE];
 	uint8_t tx_buf[BUF_SIZE];
 } conn_t;
@@ -273,6 +273,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		// +------+------+------+
 		// | 257  |  15  | 240  |
 		// +------+------+------+
+		uint8_t key[16];
 		ssize_t rx_bytes = recv(conn->sock_local, conn->rx_buf, BUF_SIZE, 0);
 		if (rx_bytes != 512)
 		{
@@ -286,8 +287,9 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		}
 		memcpy(conn->tx_buf, conn->rx_buf + 272, 240);
 		memcpy(conn->tx_buf + 240, server.key, server.key_len);
-		md5(conn->tx_buf, 240 + server.key_len, conn->key);
-		decrypt(conn->rx_buf, 272, conn->key, 16);
+		md5(conn->tx_buf, 240 + server.key_len, key);
+		enc_init(&conn->enc_evp, enc_rc4, key, 16);
+		io_decrypt(conn->rx_buf, 272, &conn->enc_evp);
 
 		const char *host = (const char *)conn->rx_buf;
 		const char *port = (const char *)conn->rx_buf + 257;
@@ -308,7 +310,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			rand_bytes(conn->tx_buf + 16, 496);
 			conn->error = true;
 			conn->tx_bytes = 512;
-			encrypt(conn->tx_buf, conn->tx_bytes, conn->key, 16);
+			io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
 			ev_io_start(EV_A_ &conn->w_local_write);
 		}
 		else
@@ -351,7 +353,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			mem_delete(conn);
 			return;
 		}
-		decrypt(conn->tx_buf, conn->tx_bytes, conn->key, 16);
+		io_decrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
 		ev_io_start(EV_A_ &conn->w_remote_write);
 		break;
 	}
@@ -458,10 +460,10 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	// +----------+---------+
 	// |    16    |   496   |
 	// +----------+---------+
-	md5(conn->key, 16, conn->tx_buf);
+	md5(server.key, server.key_len, conn->tx_buf);
 	rand_bytes(conn->tx_buf + 16, 496);
 	conn->tx_bytes = 512;
-	encrypt(conn->tx_buf, conn->tx_bytes, conn->key, 16);
+	io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
 	ev_io_start(EV_A_ &conn->w_local_write);
 }
 
@@ -497,7 +499,7 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 		mem_delete(conn);
 		return;
 	}
-	encrypt(conn->rx_buf, conn->rx_bytes, conn->key, 16);
+	io_encrypt(conn->rx_buf, conn->rx_bytes, &conn->enc_evp);
 	ev_io_start(EV_A_ &conn->w_local_write);
 }
 

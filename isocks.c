@@ -75,7 +75,7 @@ typedef struct
 	int sock_remote;
 	state_t state;
 	bool error;
-	uint8_t key[16];
+	enc_evp_t enc_evp;
 	uint8_t rx_buf[BUF_SIZE];
 	uint8_t tx_buf[BUF_SIZE];
 } conn_t;
@@ -465,14 +465,16 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			// +------+------+------+
 			// | 257  |  15  | 240  |
 			// +------+------+------+
+			uint8_t key[16];
 			rand_bytes(conn->rx_buf, 240);
 			memcpy(conn->rx_buf + 240, server.key, server.key_len);
-			md5(conn->rx_buf, 240 + server.key_len, conn->key);
+			md5(conn->rx_buf, 240 + server.key_len, key);
+			enc_init(&conn->enc_evp, enc_rc4, key, 16);
 			memcpy(conn->tx_buf + 272, conn->rx_buf, 240);
 			bzero(conn->tx_buf, 272);
 			strcpy((char *)conn->tx_buf, host);
 			strcpy((char *)conn->tx_buf + 257, port);
-			encrypt(conn->tx_buf, 272, conn->key, 16);
+			io_encrypt(conn->tx_buf, 272, &conn->enc_evp);
 			conn->tx_bytes = 512;
 			// 建立远程连接
 			conn->sock_remote = socket(server.family, SOCK_STREAM, IPPROTO_TCP);
@@ -510,7 +512,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			mem_delete(conn);
 			return;
 		}
-		encrypt(conn->tx_buf, conn->tx_bytes, conn->key, 16);
+		io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
 		ev_io_start(EV_A_ &conn->w_remote_write);
 		break;
 	}
@@ -697,9 +699,9 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 			mem_delete(conn);
 			return;
 		}
-		decrypt(conn->rx_buf, n, conn->key, 16);
+		io_decrypt(conn->rx_buf, n, &conn->enc_evp);
 		uint8_t digest[16];
-		md5(conn->key, 16, digest);
+		md5(server.key, server.key_len, digest);
 		// 命令应答格式
 		// +----+-----+-------+------+----------+----------+
 		// |VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
@@ -738,7 +740,7 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 			mem_delete(conn);
 			return;
 		}
-		decrypt(conn->rx_buf, conn->rx_bytes, conn->key, 16);
+		io_decrypt(conn->rx_buf, conn->rx_bytes, &conn->enc_evp);
 		ev_io_start(EV_A_ &conn->w_local_write);
 		break;
 	}

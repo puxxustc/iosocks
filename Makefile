@@ -34,16 +34,19 @@ clean:
 
 distclean: clean
 
-isocks: isocks.o md5.o rc4.o log.o mem.o
+isocks: isocks.o encrypt.o md5.o rc4.o log.o mem.o
 	$(LD)  $(LDFLAGS)  -o $@  $^ $(LIBS)
 
-osocks: osocks.o md5.o rc4.o log.o mem.o
+osocks: osocks.o encrypt.o md5.o rc4.o log.o mem.o
 	$(LD)  $(LDFLAGS)  -o $@  $^ $(LIBS)
 
-isocks.o: isocks.c log.h mem.h md5.h encrypt.h rc4.h
+isocks.o: isocks.c log.h mem.h md5.h encrypt.h encrypt.h
 	$(CC)  $(CFLAGS)  -c  -o $@  $<
 
-osocks.o: osocks.c log.h mem.h md5.h encrypt.h rc4.h
+osocks.o: osocks.c log.h mem.h md5.h encrypt.h encrypt.h
+	$(CC)  $(CFLAGS)  -c  -o $@  $<
+
+encrypt.o: encrypt.c encrypt.h rc4.h
 	$(CC)  $(CFLAGS)  -c  -o $@  $<
 
 md5.o: md5.c md5.h
