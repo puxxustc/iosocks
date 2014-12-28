@@ -1,0 +1,8 @@
+# ignore build files
+*.o
+isocks
+osocks
+
+# ignore Qt Creator project files
+*.pro
+*.pro.user
