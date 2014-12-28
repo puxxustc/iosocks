@@ -216,7 +216,7 @@ static void help(void)
 {
 	printf("usage: osocks\n"
 		   "  -h, --help          show this help\n"
-		   "  -a <server_host>    host name or ip address of your remote server\n"
+		   "  -s <server_host>    host name or ip address of your remote server\n"
 		   "  -p <server_port>    port number of your remote server\n"
 		   "  -k <key>            encryption key\n"
 		   "");
