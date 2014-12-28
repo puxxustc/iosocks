@@ -34,6 +34,15 @@ clean:
 
 distclean: clean
 
+install: all
+	strip isocks
+	strip osocks
+	install -Dm755 isocks /usr/bin/isocks
+	install -Dm755 osocks /usr/bin/osocks
+
+uninstall:
+	rm -f /usr/bin/isocks /usr/bin/osocks
+
 isocks: isocks.o encrypt.o md5.o rc4.o log.o mem.o
 	$(LD)  $(LDFLAGS)  -o $@  $^ $(LIBS)
 
