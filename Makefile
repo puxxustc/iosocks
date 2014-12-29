@@ -21,7 +21,7 @@ CXX = g++
 LD = gcc
 
 CFLAGS = -pipe -W -Wall -Wno-unused-parameter -std=gnu99
-CFLAGS += -O2 -fno-strict-aliasing -DNDEBUG
+CFLAGS += -O2 -fno-strict-aliasing
 LDFLAGS = -Wl,-O1
 LIBS = -lev
 

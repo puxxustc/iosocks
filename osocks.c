@@ -524,7 +524,7 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents)
 		mem_delete(conn);
 		return;
 	}
-	assert(n == conn->rx_bytes);
+	assert(n == conn->tx_bytes);
 	ev_io_start(EV_A_ &conn->w_local_read);
 }
 

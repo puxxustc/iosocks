@@ -25,9 +25,9 @@
 
 typedef struct
 {
-	uint8_t s[256];
 	int i;
 	int j;
+	uint8_t s[256];
 } rc4_evp_t;
 
 extern void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len);
