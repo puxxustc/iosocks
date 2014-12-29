@@ -282,7 +282,10 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		ssize_t rx_bytes = recv(conn->sock_local, conn->rx_buf, BUF_SIZE, 0);
 		if (rx_bytes != 512)
 		{
-			ERR("recv");
+			if (rx_bytes < 0)
+			{
+				LOG("Client RST");
+			}
 			close(conn->sock_local);
 			mem_delete(conn);
 			return;
@@ -346,7 +349,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		{
 			if (conn->tx_bytes < 0)
 			{
-				LOG("client disconnected");
+				LOG("Client RST");
 			}
 			cleanup(EV_A_ conn);
 			return;
@@ -399,10 +402,6 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 		ssize_t tx_bytes = send(conn->sock_local, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
 		if (tx_bytes != conn->tx_bytes)
 		{
-			if (tx_bytes < 0)
-			{
-				ERR("send");
-			}
 			close(conn->sock_local);
 			mem_delete(conn);
 			return;
@@ -524,7 +523,7 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 	{
 		if (conn->rx_bytes < 0)
 		{
-			LOG("remote server disconnected");
+			LOG("Remote server RST");
 		}
 		cleanup(EV_A_ conn);
 		return;
