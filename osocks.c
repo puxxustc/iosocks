@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 			}
 			server.key = argv[i + 1];
 			server.key_len = strlen(server.key);
-			if (server.key_len > 271)
+			if (server.key_len > 255)
 			{
 				fprintf(stderr, "Key too long\n");
 				return 1;
@@ -290,7 +290,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		// +------+------+------+
 		// | 257  |  15  | 240  |
 		// +------+------+------+
-		uint8_t key[16];
+		uint8_t key[64];
 		ssize_t rx_bytes = recv(conn->sock_local, conn->rx_buf, BUF_SIZE, 0);
 		if (rx_bytes != 512)
 		{
@@ -308,7 +308,10 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		memcpy(conn->tx_buf, conn->rx_buf + 272, 240);
 		memcpy(conn->tx_buf + 240, server.key, server.key_len);
 		md5(conn->tx_buf, 240 + server.key_len, key);
-		enc_init(&conn->enc_evp, enc_rc4, key, 16);
+		md5(key, 16, key + 16);
+		md5(key, 32, key + 32);
+		md5(key, 48, key + 48);
+		enc_init(&conn->enc_evp, enc_rc4, key, 64);
 		io_decrypt(conn->rx_buf, 272, &conn->enc_evp);
 		const char *host = (const char *)conn->rx_buf;
 		const char *port = (const char *)conn->rx_buf + 257;
