@@ -20,19 +20,20 @@
 #include <stdint.h>
 #include "rc4.h"
 
+#define SWAP(x, y) do {register uint8_t tmp = (x); (x) = (y); (y) = tmp; } while (0)
+
 void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len)
 {
 	register int i, j;
-	for (i = 0; i <= 255; i++)
+	register uint8_t *s = evp->s;
+	for (i = 0; i < 256; i++)
 	{
-		evp->s[i] = (uint8_t)i;
+		s[i] = (uint8_t)i;
 	}
-	for (i = 0, j = 0; i <= 255; i++)
+	for (i = 0, j = 0; i < 256; i++)
 	{
-		j = (j + evp->s[i] + ((uint8_t *)key)[i % key_len]) & 255;
-		uint8_t tmp = evp->s[i];
-		evp->s[i] = evp->s[j];
-		evp->s[j] = tmp;
+		j = (j + s[i] + ((uint8_t *)key)[i % key_len]) & 255;
+		SWAP(s[i], s[j]);
 	}
 	evp->i = 0;
 	evp->j = 0;
@@ -47,9 +48,7 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 	{
 		i = (i + 1) & 255;
 		j = (j + s[i]) & 255;
-		uint8_t tmp = s[i];
-		s[i] = s[j];
-		s[j] = tmp;
+		SWAP(s[i], s[j]);
 		((uint8_t *)stream)[k] ^= s[(s[i] + s[j]) & 255];
 	}
 	evp->i = i;

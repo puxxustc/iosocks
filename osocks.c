@@ -40,6 +40,9 @@
 // 缓冲区大小
 #define BUF_SIZE 8192
 
+// 魔数
+#define MAGIC 0x526f6e61
+
 #ifndef EAGAIN
 #define EAGAIN EWOULDBLOCK
 #endif
@@ -72,7 +75,6 @@ typedef struct
 	int sock_local;
 	int sock_remote;
 	state_t state;
-	bool error;
 	enc_evp_t enc_evp;
 	uint8_t rx_buf[BUF_SIZE];
 	uint8_t tx_buf[BUF_SIZE];
@@ -249,7 +251,6 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	{
 		return;
 	}
-	conn->error = false;
 	conn->sock_local = accept(w->fd, NULL, NULL);
 	if (conn->sock_local < 0)
 	{
@@ -285,11 +286,11 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	case CLOSED:
 	{
 		// iosocks 请求
-		// +------+------+------+
-		// | HOST | PORT |  IV  |
-		// +------+------+------+
-		// | 257  |  15  | 240  |
-		// +------+------+------+
+		// +------+------+-------+------+
+		// | HOST | PORT | MAGIC |  IV  |
+		// +------+------+-------+------+
+		// | 257  |  15  |   4   | 236  |
+		// +------+------+-------+------+
 		uint8_t key[64];
 		ssize_t rx_bytes = recv(conn->sock_local, conn->rx_buf, BUF_SIZE, 0);
 		if (rx_bytes != 512)
@@ -305,33 +306,43 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			mem_delete(conn);
 			return;
 		}
-		memcpy(conn->tx_buf, conn->rx_buf + 272, 240);
-		memcpy(conn->tx_buf + 240, server.key, server.key_len);
-		md5(conn->tx_buf, 240 + server.key_len, key);
+		memcpy(conn->tx_buf, conn->rx_buf + 276, 236);
+		memcpy(conn->tx_buf + 236, server.key, server.key_len);
+		md5(conn->tx_buf, 236 + server.key_len, key);
 		md5(key, 16, key + 16);
 		md5(key, 32, key + 32);
 		md5(key, 48, key + 48);
 		enc_init(&conn->enc_evp, enc_rc4, key, 64);
-		io_decrypt(conn->rx_buf, 272, &conn->enc_evp);
+		io_decrypt(conn->rx_buf, 276, &conn->enc_evp);
 		const char *host = (const char *)conn->rx_buf;
+		conn->rx_buf[256] = 0;
+		conn->rx_buf[271] = 0;
 		const char *port = (const char *)conn->rx_buf + 257;
+		uint32_t magic = ntohl(*((uint32_t *)(conn->rx_buf + 272)));
 		LOG("connect %s:%s", host, port);
 		struct addrinfo hints;
 		struct addrinfo *res;
 		bzero(&hints, sizeof(struct addrinfo));
 		hints.ai_family = AF_UNSPEC;
 		hints.ai_socktype = SOCK_STREAM;
-		if (getaddrinfo(host, port, &hints, &res) != 0)
+		if ((magic != MAGIC) || (getaddrinfo(host, port, &hints, &res) != 0))
 		{
-			LOG("can not resolv host: %s", host);
+			if (magic != MAGIC)
+			{
+				LOG("Illegal client ");
+			}
+			else
+			{
+				LOG("can not resolv host: %s", host);
+			}
 			// iosocks 应答
-			// +----------+---------+
-			// | MD5(key) |   0     |
-			// +----------+---------+
-			// |    16    |   496   |
-			// +----------+---------+
-			bzero(conn->tx_buf, 16);
-			rand_bytes(conn->tx_buf + 16, 496);
+			// +-------+-----+
+			// | MAGIC |  0  |
+			// +-------+-----+
+			// |   4   | 508 |
+			// +-------+-----+
+			bzero(conn->tx_buf, 4);
+			rand_bytes(conn->tx_buf + 4, 508);
 			conn->tx_bytes = 512;
 			io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
 			conn->state = REQ_ERR;
@@ -594,24 +605,24 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	getsockopt(w->fd, SOL_SOCKET, SO_ERROR, &error, &len);
 
 	// iosocks 应答
-	// +----------+---------+
-	// | MD5(key) |   0     |
-	// +----------+---------+
-	// |    16    |   496   |
-	// +----------+---------+
+	// +-------+-----+
+	// | MAGIC |  0  |
+	// +-------+-----+
+	// |   4   | 508 |
+	// +-------+-----+
 	if (error == 0)
 	{
-		md5(server.key, server.key_len, conn->tx_buf);
+		*((uint32_t *)(conn->tx_buf)) = htonl(MAGIC);
 		conn->state = CONNECTED;
 	}
 	else
 	{
 		LOG("connect failed");
 		close(conn->sock_remote);
-		bzero(conn->tx_buf, 16);
+		bzero(conn->tx_buf, 4);
 		conn->state = REQ_ERR;
 	}
-	rand_bytes(conn->tx_buf + 16, 496);
+	rand_bytes(conn->tx_buf + 4, 508);
 	conn->tx_bytes = 512;
 	io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
 	ev_io_start(EV_A_ &conn->w_local_write);

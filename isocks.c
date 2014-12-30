@@ -40,6 +40,9 @@
 // 缓冲区大小
 #define BUF_SIZE 8192
 
+// 魔数
+#define MAGIC 0x526f6e61
+
 #ifndef EAGAIN
 #define EAGAIN EWOULDBLOCK
 #endif
@@ -418,20 +421,20 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		{
 			// IPv4 地址
 			inet_ntop(AF_INET, (const void *)(conn->rx_buf + 4), host, INET_ADDRSTRLEN);
-			sprintf(port, "%d", ntohs(*(uint16_t *)(conn->rx_buf + 8)));
+			sprintf(port, "%u", ntohs(*(uint16_t *)(conn->rx_buf + 8)));
 		}
 		else if (conn->rx_buf[3] == 0x03)
 		{
 			// 域名
 			memcpy(host, conn->rx_buf + 5, conn->rx_buf[4]);
 			host[conn->rx_buf[4]] = '\0';
-			sprintf(port, "%d", ntohs(*(uint16_t *)(conn->rx_buf + conn->rx_buf[4] + 5)));
+			sprintf(port, "%u", ntohs(*(uint16_t *)(conn->rx_buf + conn->rx_buf[4] + 5)));
 		}
 		else if (conn->rx_buf[3] == 0x04)
 		{
 			// IPv6 地址
 			inet_ntop(AF_INET6, (const void *)(conn->rx_buf + 4), host, INET6_ADDRSTRLEN);
-			sprintf(port, "%d", ntohs(*(uint16_t *)(conn->rx_buf + 20)));
+			sprintf(port, "%u", ntohs(*(uint16_t *)(conn->rx_buf + 20)));
 		}
 		else
 		{
@@ -442,24 +445,25 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		{
 			LOG("connect %s:%s", host, port);
 			// iosocks 请求
-			// +------+------+------+
-			// | HOST | PORT |  IV  |
-			// +------+------+------+
-			// | 257  |  15  | 240  |
-			// +------+------+------+
+			// +------+------+-------+------+
+			// | HOST | PORT | MAGIC |  IV  |
+			// +------+------+-------+------+
+			// | 257  |  15  |   4   | 236  |
+			// +------+------+-------+------+
 			uint8_t key[64];
-			rand_bytes(conn->rx_buf, 240);
-			memcpy(conn->rx_buf + 240, server.key, server.key_len);
-			md5(conn->rx_buf, 240 + server.key_len, key);
+			rand_bytes(conn->rx_buf, 236);
+			memcpy(conn->rx_buf + 236, server.key, server.key_len);
+			md5(conn->rx_buf, 236 + server.key_len, key);
 			md5(key, 16, key + 16);
 			md5(key, 32, key + 32);
 			md5(key, 48, key + 48);
 			enc_init(&conn->enc_evp, enc_rc4, key, 64);
-			memcpy(conn->tx_buf + 272, conn->rx_buf, 240);
-			bzero(conn->tx_buf, 272);
+			memcpy(conn->tx_buf + 276, conn->rx_buf, 236);
+			bzero(conn->tx_buf, 276);
 			strcpy((char *)conn->tx_buf, host);
 			strcpy((char *)conn->tx_buf + 257, port);
-			io_encrypt(conn->tx_buf, 272, &conn->enc_evp);
+			*((uint32_t *)(conn->tx_buf + 272)) = htonl(MAGIC);
+			io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
 			conn->tx_bytes = 512;
 			// 建立远程连接
 			conn->sock_remote = socket(server.family, SOCK_STREAM, IPPROTO_TCP);
@@ -708,14 +712,12 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 			return;
 		}
 		// iosocks 应答
-		// +----------+---------+
-		// | MD5(key) |   0     |
-		// +----------+---------+
-		// |    16    |   496   |
-		// +----------+---------+
+		// +-------+-----+
+		// | MAGIC |  0  |
+		// +-------+-----+
+		// |   4   | 508 |
+		// +-------+-----+
 		io_decrypt(conn->rx_buf, rx_bytes, &conn->enc_evp);
-		uint8_t digest[16];
-		md5(server.key, server.key_len, digest);
 		// 命令应答格式
 		// +----+-----+-------+------+----------+----------+
 		// |VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
@@ -729,7 +731,8 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 		conn->tx_buf[3] = 0x01;
 		conn->tx_bytes = 10;
 		conn->state = REP_RCVD;
-		if (memcmp(digest, conn->rx_buf, 16) != 0)
+		uint32_t magic = ntohl(*((uint32_t *)(conn->rx_buf)));
+		if (magic != MAGIC)
 		{
 			conn->state = REQ_ERR;
 			conn->tx_buf[1] = 0x05;
