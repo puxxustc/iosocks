@@ -699,7 +699,7 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 	case REQ_SENT:
 	{
 		ssize_t rx_bytes = recv(conn->sock_remote, conn->rx_buf, BUF_SIZE, 0);
-		if (rx_bytes != 512)
+		if (rx_bytes != 4)
 		{
 			if (conn->rx_bytes < 0)
 			{
@@ -712,11 +712,11 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 			return;
 		}
 		// iosocks 应答
-		// +-------+-----+
-		// | MAGIC |  0  |
-		// +-------+-----+
-		// |   4   | 508 |
-		// +-------+-----+
+		// +-------+
+		// | MAGIC |
+		// +-------+
+		// |   4   |
+		// +-------+
 		io_decrypt(conn->rx_buf, rx_bytes, &conn->enc_evp);
 		// 命令应答格式
 		// +----+-----+-------+------+----------+----------+

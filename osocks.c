@@ -92,7 +92,6 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents);
 static void closewait_cb(EV_P_ ev_timer *w, int revents);
 static bool setnonblock(int sock);
 static bool settimeout(int sock);
-static void rand_bytes(uint8_t *stream, size_t len);
 static void cleanup(EV_P_ conn_t *conn);
 
 // 服务器的信息
@@ -329,24 +328,26 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		{
 			if (magic != MAGIC)
 			{
-				LOG("Illegal client ");
+				LOG("Illegal client");
+				close(conn->sock_local);
+				mem_delete(conn);
+				return;
 			}
 			else
 			{
 				LOG("can not resolv host: %s", host);
+				// iosocks 应答
+				// +-------+
+				// | MAGIC |
+				// +-------+
+				// |   4   |
+				// +-------+
+				bzero(conn->tx_buf, 4);
+				conn->tx_bytes = 4;
+				io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
+				conn->state = REQ_ERR;
+				ev_io_start(EV_A_ &conn->w_local_write);
 			}
-			// iosocks 应答
-			// +-------+-----+
-			// | MAGIC |  0  |
-			// +-------+-----+
-			// |   4   | 508 |
-			// +-------+-----+
-			bzero(conn->tx_buf, 4);
-			rand_bytes(conn->tx_buf + 4, 508);
-			conn->tx_bytes = 512;
-			io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
-			conn->state = REQ_ERR;
-			ev_io_start(EV_A_ &conn->w_local_write);
 		}
 		else
 		{
@@ -605,11 +606,11 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	getsockopt(w->fd, SOL_SOCKET, SO_ERROR, &error, &len);
 
 	// iosocks 应答
-	// +-------+-----+
-	// | MAGIC |  0  |
-	// +-------+-----+
-	// |   4   | 508 |
-	// +-------+-----+
+	// +-------+
+	// | MAGIC |
+	// +-------+
+	// |   4   |
+	// +-------+
 	if (error == 0)
 	{
 		*((uint32_t *)(conn->tx_buf)) = htonl(MAGIC);
@@ -622,8 +623,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 		bzero(conn->tx_buf, 4);
 		conn->state = REQ_ERR;
 	}
-	rand_bytes(conn->tx_buf + 4, 508);
-	conn->tx_bytes = 512;
+	conn->tx_bytes = 4;
 	io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
 	ev_io_start(EV_A_ &conn->w_local_write);
 }
@@ -664,16 +664,6 @@ static bool settimeout(int sock)
 		return false;
 	}
 	return true;
-}
-
-static void rand_bytes(uint8_t *stream, size_t len)
-{
-	static int urand = -1;
-	if (urand == -1)
-	{
-		urand = open("/dev/urandom", O_RDONLY, 0);
-	}
-	read(urand, stream, len);
 }
 
 static void cleanup(EV_P_ conn_t *conn)
