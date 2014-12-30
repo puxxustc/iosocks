@@ -4,8 +4,18 @@ A lightweight SOCKS5 proxy server
 
 ## Build ##
 
+### install libev ###
+
 ```bash
-# install libev first
+# Archlinux
+sudo pacman -S libev
+# CentOS
+sudo yum install libev-devel
+```
+
+### make ###
+
+```bash
 cd iosocks
 make
 ```
@@ -16,12 +26,12 @@ make
 
 ```bash
 usage: isocks
-  -h, --help          show this help
-  -s <server_host>    host name or ip address of your remote server
-  -p <server_port>    port number of your remote server
-  -b <local_address>  local address to bind (default 127.0.0.1)
-  -l <local_port>     port number of your local server (default 1080)
-  -k <key>            encryption key
+  -h, --help        show this help
+  -s <server_addr>  server address
+  -p <server_port>  server port, default: 8388
+  -b <local_addr>   local binding address, default: 127.0.0.1
+  -l <local_port>   local port, default: 1080
+  -k <key>          encryption key
 ```
 
 **Server**
@@ -29,8 +39,8 @@ usage: isocks
 ```bash
 usage: osocks
   -h, --help          show this help
-  -a <server_host>    host name or ip address of your remote server
-  -p <server_port>    port number of your remote server
+  -s <server_addr>    server address, default: 0.0.0.0
+  -p <server_port>    server port, default: 8388
   -k <key>            encryption key
 ```
 
