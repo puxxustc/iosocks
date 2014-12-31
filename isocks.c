@@ -445,11 +445,11 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		{
 			LOG("connect %s:%s", host, port);
 			// iosocks 请求
-			// +------+------+-------+------+
-			// | HOST | PORT | MAGIC |  IV  |
-			// +------+------+-------+------+
-			// | 257  |  15  |   4   | 236  |
-			// +------+------+-------+------+
+			// +-------+------+------+------+
+			// | MAGIC | HOST | PORT |  IV  |
+			// +-------+------+------+------+
+			// |   4   | 257  |  15  | 236  |
+			// +-------+------+------+------+
 			uint8_t key[64];
 			rand_bytes(conn->rx_buf, 236);
 			memcpy(conn->rx_buf + 236, server.key, server.key_len);
@@ -460,9 +460,9 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			enc_init(&conn->enc_evp, enc_rc4, key, 64);
 			memcpy(conn->tx_buf + 276, conn->rx_buf, 236);
 			bzero(conn->tx_buf, 276);
-			strcpy((char *)conn->tx_buf, host);
-			strcpy((char *)conn->tx_buf + 257, port);
-			*((uint32_t *)(conn->tx_buf + 272)) = htonl(MAGIC);
+			*((uint32_t *)(conn->tx_buf)) = htonl(MAGIC);
+			strcpy((char *)conn->tx_buf + 4, host);
+			strcpy((char *)conn->tx_buf + 261, port);
 			io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
 			conn->tx_bytes = 512;
 			// 建立远程连接

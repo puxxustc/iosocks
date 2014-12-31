@@ -285,11 +285,11 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	case CLOSED:
 	{
 		// iosocks 请求
-		// +------+------+-------+------+
-		// | HOST | PORT | MAGIC |  IV  |
-		// +------+------+-------+------+
-		// | 257  |  15  |   4   | 236  |
-		// +------+------+-------+------+
+		// +-------+------+------+------+
+		// | MAGIC | HOST | PORT |  IV  |
+		// +-------+------+------+------+
+		// |   4   | 257  |  15  | 236  |
+		// +-------+------+------+------+
 		uint8_t key[64];
 		ssize_t rx_bytes = recv(conn->sock_local, conn->rx_buf, BUF_SIZE, 0);
 		if (rx_bytes != 512)
@@ -313,11 +313,11 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		md5(key, 48, key + 48);
 		enc_init(&conn->enc_evp, enc_rc4, key, 64);
 		io_decrypt(conn->rx_buf, 276, &conn->enc_evp);
-		const char *host = (const char *)conn->rx_buf;
-		conn->rx_buf[256] = 0;
-		conn->rx_buf[271] = 0;
-		const char *port = (const char *)conn->rx_buf + 257;
-		uint32_t magic = ntohl(*((uint32_t *)(conn->rx_buf + 272)));
+		uint32_t magic = ntohl(*((uint32_t *)(conn->rx_buf)));
+		const char *host = (const char *)conn->rx_buf + 4;
+		const char *port = (const char *)conn->rx_buf + 261;
+		conn->rx_buf[260] = 0;
+		conn->rx_buf[275] = 0;
 		LOG("connect %s:%s", host, port);
 		struct addrinfo hints;
 		struct addrinfo *res;
