@@ -72,6 +72,7 @@ typedef struct
 	ssize_t tx_bytes;
 	ssize_t rx_offset;
 	ssize_t tx_offset;
+	struct addrinfo *addr;
 	int sock_local;
 	int sock_remote;
 	state_t state;
@@ -299,7 +300,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 #ifndef NDEBUG
 				ERR("recv");
 #endif
-				LOG("Client RST");
+				LOG("client reset");
 			}
 			close(conn->sock_local);
 			mem_delete(conn);
@@ -320,15 +321,14 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		conn->rx_buf[275] = 0;
 		LOG("connect %s:%s", host, port);
 		struct addrinfo hints;
-		struct addrinfo *res;
 		bzero(&hints, sizeof(struct addrinfo));
 		hints.ai_family = AF_UNSPEC;
 		hints.ai_socktype = SOCK_STREAM;
-		if ((magic != MAGIC) || (getaddrinfo(host, port, &hints, &res) != 0))
+		if ((magic != MAGIC) || (getaddrinfo(host, port, &hints, &conn->addr) != 0))
 		{
 			if (magic != MAGIC)
 			{
-				LOG("Illegal client");
+				LOG("illegal client");
 				close(conn->sock_local);
 				mem_delete(conn);
 				return;
@@ -352,11 +352,11 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		else
 		{
 			// 建立远程连接
-			conn->sock_remote = socket(res->ai_family, SOCK_STREAM, IPPROTO_TCP);
+			conn->sock_remote = socket(conn->addr->ai_family, SOCK_STREAM, IPPROTO_TCP);
 			if (conn->sock_remote < 0)
 			{
 				ERR("socket");
-				freeaddrinfo(res);
+				freeaddrinfo(conn->addr);
 				close(conn->sock_local);
 				mem_delete(conn);
 				return;
@@ -367,8 +367,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			conn->w_remote_write.data = (void *)conn;
 			ev_io_start(EV_A_ &conn->w_remote_write);
 			conn->state = REQ_RCVD;
-			connect(conn->sock_remote, (struct sockaddr *)res->ai_addr, res->ai_addrlen);
-			freeaddrinfo(res);
+			connect(conn->sock_remote, (struct sockaddr *)conn->addr->ai_addr, conn->addr->ai_addrlen);
 		}
 		break;
 	}
@@ -382,7 +381,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 #ifndef NDEBUG
 				ERR("recv");
 #endif
-				LOG("Client RST");
+				LOG("client reset");
 			}
 			cleanup(EV_A_ conn);
 			return;
@@ -527,7 +526,7 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 #ifndef NDEBUG
 			ERR("recv");
 #endif
-			LOG("Remote server RST");
+			LOG("remote server reset");
 		}
 		cleanup(EV_A_ conn);
 		return;
@@ -597,9 +596,9 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
 
-	ev_io_stop(EV_A_ w);
-
 	assert(conn->state == REQ_RCVD);
+
+	ev_io_stop(EV_A_ w);
 
 	int error = 1;
 	socklen_t len = sizeof(int);
@@ -613,18 +612,46 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	// +-------+
 	if (error == 0)
 	{
+		// 连接成功
 		*((uint32_t *)(conn->tx_buf)) = htonl(MAGIC);
 		conn->state = CONNECTED;
 	}
 	else
 	{
-		LOG("connect failed");
+		// 连接失败
 		close(conn->sock_remote);
-		bzero(conn->tx_buf, 4);
-		conn->state = REQ_ERR;
+		conn->addr = conn->addr->ai_next;
+		if (conn->addr != NULL)
+		{
+			conn->sock_remote = socket(conn->addr->ai_family, SOCK_STREAM, IPPROTO_TCP);
+			if (conn->sock_remote < 0)
+			{
+				ERR("socket");
+				freeaddrinfo(conn->addr);
+				close(conn->sock_local);
+				mem_delete(conn);
+				return;
+			}
+			setnonblock(conn->sock_remote);
+			settimeout(conn->sock_remote);
+			ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
+			conn->w_remote_write.data = (void *)conn;
+			ev_io_start(EV_A_ &conn->w_remote_write);
+			connect(conn->sock_remote, (struct sockaddr *)conn->addr->ai_addr, conn->addr->ai_addrlen);
+			return;
+		}
+		else
+		{
+			LOG("connect failed");
+			close(conn->sock_remote);
+			*((uint32_t *)(conn->tx_buf)) = 0;
+			conn->state = REQ_ERR;
+		}
 	}
+	freeaddrinfo(conn->addr);
 	conn->tx_bytes = 4;
 	io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
+	ev_io_stop(EV_A_ w);
 	ev_io_start(EV_A_ &conn->w_local_write);
 }
 

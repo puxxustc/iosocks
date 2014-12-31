@@ -341,7 +341,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 #ifndef NDEBUG
 				ERR("recv");
 #endif
-				LOG("Client RST");
+				LOG("client reset");
 			}
 			close(conn->sock_local);
 			mem_delete(conn);
@@ -400,7 +400,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 #ifndef NDEBUG
 				ERR("recv");
 #endif
-				LOG("Client RST");
+				LOG("client reset");
 			}
 			close(conn->sock_local);
 			mem_delete(conn);
@@ -522,7 +522,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 #ifndef NDEBUG
 				ERR("recv");
 #endif
-				LOG("Client RST");
+				LOG("client reset");
 			}
 			cleanup(EV_A_ conn);
 			return;
@@ -706,7 +706,7 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 #ifndef NDEBUG
 				ERR("recv");
 #endif
-				LOG("Server RST");
+				LOG("server reset");
 			}
 			cleanup(EV_A_ conn);
 			return;
@@ -734,6 +734,7 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 		uint32_t magic = ntohl(*((uint32_t *)(conn->rx_buf)));
 		if (magic != MAGIC)
 		{
+			LOG("connect failed");
 			conn->state = REQ_ERR;
 			conn->tx_buf[1] = 0x05;
 		}
@@ -750,7 +751,7 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 #ifndef NDEBUG
 				ERR("recv");
 #endif
-				LOG("Server RST");
+				LOG("server reset");
 			}
 			cleanup(EV_A_ conn);
 			return;
@@ -875,7 +876,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	}
 	else
 	{
-		LOG("connect failed");
+		LOG("connect to iosocks server failed");
 		// 命令应答格式
 		// +-----+-----+-------+------+----------+----------+
 		// | VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
