@@ -21,9 +21,8 @@
 #define MEM_H
 
 #include <stddef.h>
-#include <stdbool.h>
 
-extern bool mem_init(size_t *block_size, size_t *block_count, size_t pool_count);
+extern int mem_init(size_t *block_size, size_t *block_count, size_t pool_count);
 extern void *mem_new(size_t size);
 extern void mem_delete(void *ptr);
 

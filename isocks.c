@@ -19,7 +19,6 @@
 
 #include <assert.h>
 #include <errno.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -96,8 +95,8 @@ static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
 static void remote_write_cb(EV_P_ ev_io *w, int revents);
 static void closewait_cb(EV_P_ ev_timer *w, int revents);
-static bool setnonblock(int sock);
-static bool settimeout(int sock);
+static int setnonblock(int sock);
+static int settimeout(int sock);
 static void rand_bytes(uint8_t *stream, size_t len);
 static void cleanup(EV_P_ conn_t *conn);
 
@@ -247,7 +246,7 @@ int main(int argc, char **argv)
 	// 初始化内存池
 	size_t block_size[2] = { sizeof(ev_timer), sizeof(conn_t) };
 	size_t block_count[2] = { 8, 64 };
-	if (!mem_init(block_size, block_count, 2))
+	if (mem_init(block_size, block_count, 2) != 0)
 	{
 		LOG("memory pool error");
 		return 3;
@@ -905,33 +904,33 @@ static void closewait_cb(EV_P_ ev_timer *w, int revents)
 	mem_delete(conn);
 }
 
-static bool setnonblock(int sock)
+static int setnonblock(int sock)
 {
 	int flags;
 	flags = fcntl(sock, F_GETFL, 0);
 	if (flags == -1)
 	{
-		return false;
+		return -1;
 	}
 	if (-1 == fcntl(sock, F_SETFL, flags | O_NONBLOCK))
 	{
-		return false;
+		return -1;
 	}
-	return true;
+	return 0;
 }
 
-static bool settimeout(int sock)
+static int settimeout(int sock)
 {
 	struct timeval timeout = { .tv_sec = 10, .tv_usec = 0};
 	if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval)) != 0)
 	{
-		return false;
+		return -1;
 	}
 	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) != 0)
 	{
-		return false;
+		return -1;
 	}
-	return true;
+	return 0;
 }
 
 static void rand_bytes(uint8_t *stream, size_t len)
