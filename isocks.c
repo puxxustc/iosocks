@@ -89,7 +89,7 @@ typedef struct
 
 
 static void help(void);
-static void sigint_cb(EV_P_ ev_signal *w, int revents);
+static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
 static void connect_cb(EV_P_ ev_io *w, int revents);
 static void local_read_cb(EV_P_ ev_io *w, int revents);
@@ -286,8 +286,11 @@ int main(int argc, char **argv)
 	// 初始化 ev
 	struct ev_loop *loop = EV_DEFAULT;
 	ev_signal w_sigint;
-	ev_signal_init(&w_sigint, sigint_cb, SIGINT);
+	ev_signal w_sigterm;
+	ev_signal_init(&w_sigint, signal_cb, SIGINT);
+	ev_signal_init(&w_sigterm, signal_cb, SIGTERM);
 	ev_signal_start(loop, &w_sigint);
+	ev_signal_start(loop, &w_sigterm);
 	ev_io w_listen;
 	ev_io_init(&w_listen, accept_cb, sock_listen, EV_READ);
 	ev_io_start(loop, &w_listen);
@@ -315,9 +318,8 @@ static void help(void)
 		   "");
 }
 
-static void sigint_cb(EV_P_ ev_signal *w, int revents)
+static void signal_cb(EV_P_ ev_signal *w, int revents)
 {
-	LOG("SIGINT");
 	ev_break(EV_A_ EVBREAK_ALL);
 }
 
