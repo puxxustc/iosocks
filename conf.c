@@ -52,9 +52,12 @@ int read_conf(const char *file, conf_t *conf)
 
 	while (!feof(f))
 	{
-		fgets(buf, MAX_LINE, f);
+		char *line = fgets(buf, MAX_LINE, f);
+		if (line == NULL)
+		{
+			break;
+		}
 		line_num++;
-		char *line = buf;
 		// 跳过行首空白符
 		while (isspace(*line))
 		{
@@ -67,8 +70,8 @@ int read_conf(const char *file, conf_t *conf)
 			*end = '\0';
 			end--;
 		}
-		// 跳过注释和空行
-		if ((*line == ';') || (*line == '#'))
+		// 跳过注释和空白行
+		if ((*line == ';') || (*line == '#') ||(*line == '\0'))
 		{
 			continue;
 		}
