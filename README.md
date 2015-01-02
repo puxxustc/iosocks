@@ -30,7 +30,7 @@ make
 usage: isocks
   -h, --help        show this help
   -s <server_addr>  server address, default: 0.0.0.0
-  -p <server_port>  server port, default: 8388
+  -p <server_port>  server port, default: 1205
   -b <local_addr>   local binding address, default: 127.0.0.1
   -l <local_port>   local port, default: 1080
   -k <key>          encryption key
@@ -42,7 +42,7 @@ usage: isocks
 usage: osocks
   -h, --help        show this help
   -s <server_addr>  server address, default: 0.0.0.0
-  -p <server_port>  server port, default: 8388
+  -p <server_port>  server port, default: 1205
   -k <key>          encryption key
 ```
 

@@ -205,7 +205,7 @@ int main(int argc, char **argv)
 	}
 	if (conf.server_port == NULL)
 	{
-		conf.server_port = "8388";
+		conf.server_port = "1205";
 	}
 	if (conf.local_addr == NULL)
 	{
@@ -298,11 +298,6 @@ int main(int argc, char **argv)
 
 	// 退出
 	close(sock_listen);
-	free(conf.server_addr);
-	free(conf.server_port);
-	free(conf.key);
-	free(conf.local_addr);
-	free(conf.local_port);
 	LOG("Exit");
 
 	return 0;
@@ -313,7 +308,7 @@ static void help(void)
 	printf("usage: isocks\n"
 		   "  -h, --help        show this help\n"
 		   "  -s <server_addr>  server address, default: 0.0.0.0\n"
-		   "  -p <server_port>  server port, default: 8388\n"
+		   "  -p <server_port>  server port, default: 1205\n"
 		   "  -b <local_addr>   local binding address, default: 127.0.0.1\n"
 		   "  -l <local_port>   local port, default: 1080\n"
 		   "  -k <key>          encryption key\n"
