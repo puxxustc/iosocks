@@ -39,20 +39,25 @@ install: all
 	strip osocks
 	install -Dm755 isocks /usr/bin/isocks
 	install -Dm755 osocks /usr/bin/osocks
+	mkdir -p /etc/iosocks
+	[ ! -d /usr/lib/systemd/system ] || \
+		install -Dm644 isocks@.service /usr/lib/systemd/system/isocks@.service
+	[ ! -d /usr/lib/systemd/system ] || \
+		install -Dm644 osocks@.service /usr/lib/systemd/system/osocks@.service
 
 uninstall:
 	rm -f /usr/bin/isocks /usr/bin/osocks
 
-isocks: isocks.o encrypt.o md5.o rc4.o log.o mem.o
+isocks: isocks.o encrypt.o md5.o rc4.o log.o mem.o conf.o
 	$(LD)  $(LDFLAGS)  -o $@  $^ $(LIBS)
 
-osocks: osocks.o encrypt.o md5.o rc4.o log.o mem.o
+osocks: osocks.o encrypt.o md5.o rc4.o log.o mem.o conf.o
 	$(LD)  $(LDFLAGS)  -o $@  $^ $(LIBS)
 
-isocks.o: isocks.c log.h mem.h md5.h encrypt.h encrypt.h
+isocks.o: isocks.c log.h mem.h md5.h encrypt.h encrypt.h conf.h
 	$(CC)  $(CFLAGS)  -c  -o $@  $<
 
-osocks.o: osocks.c log.h mem.h md5.h encrypt.h encrypt.h
+osocks.o: osocks.c log.h mem.h md5.h encrypt.h encrypt.h conf.h
 	$(CC)  $(CFLAGS)  -c  -o $@  $<
 
 encrypt.o: encrypt.c encrypt.h rc4.h
@@ -68,4 +73,7 @@ log.o: log.c log.h
 	$(CC)  $(CFLAGS)  -c  -o $@  $<
 
 mem.o: mem.c mem.h
+	$(CC)  $(CFLAGS)  -c  -o $@  $<
+
+conf.o: conf.c conf.h log.h
 	$(CC)  $(CFLAGS)  -c  -o $@  $<

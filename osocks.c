@@ -17,24 +17,26 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/time.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <ev.h>
-#include "log.h"
-#include "mem.h"
-#include "md5.h"
+#include "conf.h"
 #include "encrypt.h"
+#include "log.h"
+#include "md5.h"
+#include "mem.h"
 
 // 缓冲区大小
 #define BUF_SIZE 8192
@@ -97,22 +99,33 @@ static void cleanup(EV_P_ conn_t *conn);
 // 服务器的信息
 struct
 {
-	const char *key;
+	char *key;
 	size_t key_len;
 } server = { .key = NULL, .key_len = 0};
 
 
 int main(int argc, char **argv)
 {
-	const char *server_addr = "0.0.0.0";
-	const char *server_port = "8388";
+	const char *conf_file = NULL;
+	conf_t conf = { NULL};
 
+	// 处理命令行参数
 	for (int i = 1; i < argc; i++)
 	{
 		if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
 		{
 			help();
 			return 0;
+		}
+		else if (strcmp(argv[i], "-c") == 0)
+		{
+			if (i + 2 > argc)
+			{
+				fprintf(stderr, "Invalid option: %s\n", argv[i]);
+				return 1;
+			}
+			conf_file = argv[i + 1];
+			i++;
 		}
 		else if (strcmp(argv[i], "-s") == 0)
 		{
@@ -121,7 +134,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			server_addr = argv[i + 1];
+			conf.server_addr = argv[i + 1];
 			i++;
 		}
 		else if (strcmp(argv[i], "-p") == 0)
@@ -131,7 +144,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			server_port = argv[i + 1];
+			conf.server_port = argv[i + 1];
 			i++;
 		}
 		else if (strcmp(argv[i], "-k") == 0)
@@ -141,13 +154,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			server.key = argv[i + 1];
-			server.key_len = strlen(server.key);
-			if (server.key_len > 255)
-			{
-				fprintf(stderr, "Key too long\n");
-				return 1;
-			}
+			conf.key = argv[i + 1];
 			i++;
 
 		}
@@ -157,10 +164,34 @@ int main(int argc, char **argv)
 			return 1;
 		}
 	}
-	if ((server_addr == NULL) || (server_port == NULL) || (server.key == NULL))
+	if (conf_file != NULL)
+	{
+		if (read_conf(conf_file, &conf) != 0)
+		{
+			return 1;
+		}
+	}
+	if (conf.server_addr == NULL)
+	{
+		conf.server_addr = "0.0.0.0";
+	}
+	if (conf.server_port == NULL)
+	{
+		conf.server_port = "8388";
+	}
+	if (conf.key == NULL)
 	{
 		help();
 		return 1;
+	}
+
+	// 服务器信息
+	server.key = conf.key;
+	server.key_len = strlen(conf.key);
+	if (server.key_len > 256)
+	{
+		server.key[257] = '\0';
+		server.key_len = 256;
 	}
 
 	// 初始化本地监听 socket
@@ -169,7 +200,7 @@ int main(int argc, char **argv)
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	if (getaddrinfo(server_addr, server_port, &hints, &res) != 0)
+	if (getaddrinfo(conf.server_addr, conf.server_port, &hints, &res) != 0)
 	{
 		LOG("Wrong server_host/server_port");
 		return 2;
@@ -181,12 +212,8 @@ int main(int argc, char **argv)
 		return 2;
 	}
 	setnonblock(sock_listen);
-	int sockopt = 1;
-	if (setsockopt(sock_listen, SOL_SOCKET, SO_REUSEADDR, &sockopt, sizeof(int)) != 0)
-	{
-		ERR("setsockopt SO_REUSEADDR");
-		return 2;
-	}
+	int reuseaddr = 1;
+	setsockopt(sock_listen, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int));
 	if (bind(sock_listen, (struct sockaddr *)res->ai_addr, res->ai_addrlen) != 0)
 	{
 		ERR("bind");
@@ -218,10 +245,16 @@ int main(int argc, char **argv)
 	ev_io_start(loop, &w_listen);
 
 	// 执行事件循环
-	LOG("starting osocks at %s:%s", server_addr, server_port);
+	LOG("starting osocks at %s:%s", conf.server_addr, conf.server_port);
 	ev_run(loop, 0);
 
 	// 退出
+	close(sock_listen);
+	free(conf.server_addr);
+	free(conf.server_port);
+	free(conf.key);
+	free(conf.local_addr);
+	free(conf.local_port);
 	LOG("Exit");
 
 	return 0;
@@ -257,12 +290,8 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 		mem_delete(conn);
 		return;
 	}
-	if (!setnonblock(conn->sock_local))
-	{
-		close(conn->sock_local);
-		mem_delete(conn);
-		return;
-	}
+	setnonblock(conn->sock_local);
+	settimeout(conn->sock_local);
 	conn->state = CLOSED;
 	ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
 	ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);

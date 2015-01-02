@@ -1,0 +1,14 @@
+[Unit]
+Description=Iosocks Client Service
+After=network.target
+
+[Service]
+Type=simple
+User=nobody
+ExecStart=/usr/bin/isocks -c /etc/iosocks/%i.conf
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

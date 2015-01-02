@@ -1,5 +1,5 @@
 /*
- * log.c - log system
+ * conf.h - parse config file
  *
  * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -17,35 +17,17 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <errno.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/time.h>
-#include "log.h"
+#ifndef CONF_H
+#define CONF_H
 
-void __log(FILE *stream, const char *format, ...)
-{
-	static double start_time = -1.0;
-	double now;
-	struct timeval t;
-	gettimeofday(&t, NULL);
-	now = t.tv_sec + t.tv_usec / 1000000.0;
-	if (start_time < 0.0)
-	{
-		start_time = now;
-	}
-	fprintf(stream, "[%8.2lf] ", now - start_time);
+typedef struct {
+	char *server_addr;
+	char *server_port;
+	char *key;
+	char *local_addr;
+	char *local_port;
+} conf_t;
 
-	va_list args;
-	va_start(args, format);
-	vfprintf(stream, format, args);
-	va_end(args);
-	putchar('\n');
-}
+extern int read_conf(const char *file, conf_t *conf);
 
-void __err(const char *msg)
-{
-	__log(stderr, "%s: %s", msg, strerror(errno));
-}
-
+#endif // CONF_H
