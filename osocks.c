@@ -263,10 +263,10 @@ int main(int argc, char **argv)
 static void help(void)
 {
 	printf("usage: osocks\n"
-		   "  -h, --help          show this help\n"
-		   "  -s <server_addr>    server address, default: 0.0.0.0\n"
-		   "  -p <server_port>    server port, default: 8388\n"
-		   "  -k <key>            encryption key\n"
+		   "  -h, --help        show this help\n"
+		   "  -s <server_addr>  server address, default: 0.0.0.0\n"
+		   "  -p <server_port>  server port, default: 8388\n"
+		   "  -k <key>          encryption key\n"
 		   "");
 }
 

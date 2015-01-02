@@ -312,7 +312,7 @@ static void help(void)
 {
 	printf("usage: isocks\n"
 		   "  -h, --help        show this help\n"
-		   "  -s <server_addr>  server address\n"
+		   "  -s <server_addr>  server address, default: 0.0.0.0\n"
 		   "  -p <server_port>  server port, default: 8388\n"
 		   "  -b <local_addr>   local binding address, default: 127.0.0.1\n"
 		   "  -l <local_port>   local port, default: 1080\n"

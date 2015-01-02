@@ -11,6 +11,8 @@ A lightweight SOCKS5 proxy server
 sudo pacman -S libev
 # CentOS
 sudo yum install libev-devel
+# Debian/Ubuntu
+sudo apt-get install libev-devel
 ```
 
 ### make ###
@@ -27,7 +29,7 @@ make
 ```bash
 usage: isocks
   -h, --help        show this help
-  -s <server_addr>  server address
+  -s <server_addr>  server address, default: 0.0.0.0
   -p <server_port>  server port, default: 8388
   -b <local_addr>   local binding address, default: 127.0.0.1
   -l <local_port>   local port, default: 1080
@@ -38,10 +40,10 @@ usage: isocks
 
 ```bash
 usage: osocks
-  -h, --help          show this help
-  -s <server_addr>    server address, default: 0.0.0.0
-  -p <server_port>    server port, default: 8388
-  -k <key>            encryption key
+  -h, --help        show this help
+  -s <server_addr>  server address, default: 0.0.0.0
+  -p <server_port>  server port, default: 8388
+  -k <key>          encryption key
 ```
 
 ## License ##
