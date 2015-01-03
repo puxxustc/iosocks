@@ -758,6 +758,7 @@ static void closewait_cb(EV_P_ ev_timer *w, int revents)
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
+	assert(conn->state == CLOSE_WAIT);
 
 	ev_timer_stop(EV_A_ w);
 	close(conn->sock_local);

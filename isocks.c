@@ -320,6 +320,7 @@ static void help(void)
 
 static void signal_cb(EV_P_ ev_signal *w, int revents)
 {
+	assert((w->signum == SIGINT) || (w->signum == SIGTERM));
 	ev_break(EV_A_ EVBREAK_ALL);
 }
 
@@ -350,6 +351,8 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 static void local_read_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn != NULL);
 
 	if (conn->state != ESTAB)
 	{
@@ -602,6 +605,8 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)w->data;
 
+	assert(conn != NULL);
+
 	if (conn->state != ESTAB)
 	{
 		ev_io_stop(EV_A_ w);
@@ -723,6 +728,8 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
 
+	assert(conn != NULL);
+
 	if (conn->state != ESTAB)
 	{
 		ev_io_stop(EV_A_ w);
@@ -831,6 +838,8 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
 
+	assert(conn != NULL);
+
 	if (conn->state != ESTAB)
 	{
 		ev_io_stop(EV_A_ w);
@@ -894,6 +903,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
 
+	assert(conn != NULL);
 	assert(conn->state == CMD_RCVD);
 
 	ev_io_stop(EV_A_ w);
@@ -932,7 +942,10 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 static void closewait_cb(EV_P_ ev_timer *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn != NULL);
 	assert(conn->state == CLOSE_WAIT);
+
 	ev_timer_stop(EV_A_ w);
 	close(conn->sock_local);
 	mem_delete(w);
