@@ -262,7 +262,7 @@ int main(int argc, char **argv)
 		return 3;
 	}
 
-	// 初始化 ev
+	// 初始化 ev_signal
 	loop = EV_DEFAULT;
 	ev_signal w_sigint;
 	ev_signal w_sigterm;

@@ -1,6 +1,6 @@
 # iosocks  #
 
-A lightweight SOCKS5 proxy server
+A lightweight SOCKS5 proxy
 
 ## Build ##
 

@@ -259,6 +259,24 @@ int main(int argc, char **argv)
 		freeaddrinfo(res);
 	}
 
+	// 初始化内存池
+	size_t block_size[2] = { sizeof(ev_timer), sizeof(conn_t) };
+	size_t block_count[2] = { 8, 64 };
+	if (mem_init(block_size, block_count, 2) != 0)
+	{
+		LOG("memory pool error");
+		return 3;
+	}
+
+	// 初始化 ev_signal
+	struct ev_loop *loop = EV_DEFAULT;
+	ev_signal w_sigint;
+	ev_signal w_sigterm;
+	ev_signal_init(&w_sigint, signal_cb, SIGINT);
+	ev_signal_init(&w_sigterm, signal_cb, SIGTERM);
+	ev_signal_start(loop, &w_sigint);
+	ev_signal_start(loop, &w_sigterm);
+
 	// 初始化本地监听 socket
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
@@ -288,30 +306,12 @@ int main(int argc, char **argv)
 		ERR("listen");
 		return 2;
 	}
-
-	// 初始化内存池
-	size_t block_size[2] = { sizeof(ev_timer), sizeof(conn_t) };
-	size_t block_count[2] = { 8, 64 };
-	if (mem_init(block_size, block_count, 2) != 0)
-	{
-		LOG("memory pool error");
-		return 3;
-	}
-
-	// 初始化 ev
-	struct ev_loop *loop = EV_DEFAULT;
-	ev_signal w_sigint;
-	ev_signal w_sigterm;
-	ev_signal_init(&w_sigint, signal_cb, SIGINT);
-	ev_signal_init(&w_sigterm, signal_cb, SIGTERM);
-	ev_signal_start(loop, &w_sigint);
-	ev_signal_start(loop, &w_sigterm);
 	ev_io w_listen;
 	ev_io_init(&w_listen, accept_cb, sock_listen, EV_READ);
 	ev_io_start(loop, &w_listen);
+	LOG("starting isocks at %s:%s", conf.local.address, conf.local.port);
 
 	// 执行事件循环
-	LOG("starting isocks at %s:%s", conf.local.address, conf.local.port);
 	ev_run(loop, 0);
 
 	// 退出
@@ -499,7 +499,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			// 随机选择一个 server
 			unsigned int index;
 			rand_bytes(&index, sizeof(unsigned int));
-			index %= conf.server_num;
+			index %= (unsigned int)conf.server_num;
 			// iosocks 请求
 			// +-------+------+------+------+
 			// | MAGIC | HOST | PORT |  IV  |
