@@ -87,6 +87,7 @@ typedef struct
 	ssize_t rx_offset;
 	ssize_t tx_offset;
 	gai_t *gai;
+	int server_index;
 	int sock_local;
 	int sock_remote;
 	state_t state;
@@ -111,18 +112,20 @@ static int settimeout(int sock);
 static void cleanup(EV_P_ conn_t *conn);
 
 // 服务器的信息
-struct
+typedef struct
 {
 	char *key;
 	size_t key_len;
-} server = { .key = NULL, .key_len = 0};
+} server_t;
+server_t servers[MAX_SERVER];
 
 struct ev_loop *loop;
 
 int main(int argc, char **argv)
 {
 	const char *conf_file = NULL;
-	conf_t conf = { NULL};
+	conf_t conf;
+	bzero(&conf, sizeof(conf_t));
 
 	// 处理命令行参数
 	for (int i = 1; i < argc; i++)
@@ -149,7 +152,8 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			conf.server_addr = argv[i + 1];
+			conf.server_num = 1;
+			conf.server[0].address = argv[i + 1];
 			i++;
 		}
 		else if (strcmp(argv[i], "-p") == 0)
@@ -159,7 +163,28 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			conf.server_port = argv[i + 1];
+			conf.server_num = 1;
+			conf.server[0].port = argv[i + 1];
+			i++;
+		}
+		else if (strcmp(argv[i], "-b") == 0)
+		{
+			if (i + 2 > argc)
+			{
+				fprintf(stderr, "Invalid option: %s\n", argv[i]);
+				return 1;
+			}
+			conf.local.address = argv[i + 1];
+			i++;
+		}
+		else if (strcmp(argv[i], "-l") == 0)
+		{
+			if (i + 2 > argc)
+			{
+				fprintf(stderr, "Invalid option: %s\n", argv[i]);
+				return 1;
+			}
+			conf.local.port = argv[i + 1];
 			i++;
 		}
 		else if (strcmp(argv[i], "-k") == 0)
@@ -169,9 +194,9 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			conf.key = argv[i + 1];
+			conf.server_num = 1;
+			conf.server[0].key = argv[i + 1];
 			i++;
-
 		}
 		else
 		{
@@ -186,59 +211,46 @@ int main(int argc, char **argv)
 			return 1;
 		}
 	}
-	if (conf.server_addr == NULL)
-	{
-		conf.server_addr = "0.0.0.0";
-	}
-	if (conf.server_port == NULL)
-	{
-		conf.server_port = "1205";
-	}
-	if (conf.key == NULL)
+	if (conf.server_num == 0)
 	{
 		help();
 		return 1;
 	}
+	for (int i = 0; i < conf.server_num; i++)
+	{
+		if (conf.server[i].address == NULL)
+		{
+			conf.server[i].address = "0.0.0.0";
+		}
+		if (conf.server[i].port == NULL)
+		{
+			conf.server[i].port = "1205";
+		}
+		if (conf.server[i].key == NULL)
+		{
+			help();
+			return 1;
+		}
+	}
+	if (conf.local.address == NULL)
+	{
+		conf.local.address = "127.0.0.1";
+	}
+	if (conf.local.port == NULL)
+	{
+		conf.local.port = "1080";
+	}
 
 	// 服务器信息
-	server.key = conf.key;
-	server.key_len = strlen(conf.key);
-	if (server.key_len > 256)
+	for (int i = 0; i < conf.server_num; i++)
 	{
-		server.key[257] = '\0';
-		server.key_len = 256;
-	}
-
-	// 初始化本地监听 socket
-	struct addrinfo hints;
-	struct addrinfo *res;
-	bzero(&hints, sizeof(struct addrinfo));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	if (getaddrinfo(conf.server_addr, conf.server_port, &hints, &res) != 0)
-	{
-		LOG("Wrong server_host/server_port");
-		return 2;
-	}
-	int sock_listen = socket(res->ai_family, SOCK_STREAM, IPPROTO_TCP);
-	if (sock_listen < 0)
-	{
-		ERR("socket");
-		return 2;
-	}
-	setnonblock(sock_listen);
-	int reuseaddr = 1;
-	setsockopt(sock_listen, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int));
-	if (bind(sock_listen, (struct sockaddr *)res->ai_addr, res->ai_addrlen) != 0)
-	{
-		ERR("bind");
-		return 2;
-	}
-	freeaddrinfo(res);
-	if (listen(sock_listen, 1024) != 0)
-	{
-		ERR("listen");
-		return 2;
+		servers[i].key = conf.server[i].key;
+		servers[i].key_len = strlen(servers[i].key);
+		if (servers[i].key_len > 256)
+		{
+			servers[i].key[257] = '\0';
+			servers[i].key_len = 256;
+		}
 	}
 
 	// 初始化内存池
@@ -258,9 +270,6 @@ int main(int argc, char **argv)
 	ev_signal_init(&w_sigterm, signal_cb, SIGTERM);
 	ev_signal_start(EV_A_ &w_sigint);
 	ev_signal_start(EV_A_ &w_sigterm);
-	ev_io w_listen;
-	ev_io_init(&w_listen, accept_cb, sock_listen, EV_READ);
-	ev_io_start(EV_A_ &w_listen);
 
 	// SIGUSR1 信号
 	struct sigaction sa;
@@ -273,13 +282,56 @@ int main(int argc, char **argv)
 		return 4;
 	}
 
+	// 初始化本地监听 socket
+	int sock_listen[MAX_SERVER];
+	ev_io w_listen[MAX_SERVER];
+	struct addrinfo hints;
+	struct addrinfo *res;
+	for (int i = 0; i < conf.server_num; i++)
+	{
+		bzero(&hints, sizeof(struct addrinfo));
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		if (getaddrinfo(conf.server[i].address, conf.server[i].port, &hints, &res) != 0)
+		{
+			LOG("wrong server_host/server_port");
+			return 2;
+		}
+		sock_listen[i] = socket(res->ai_family, SOCK_STREAM, IPPROTO_TCP);
+		if (sock_listen[i] < 0)
+		{
+			ERR("socket");
+			return 2;
+		}
+		setnonblock(sock_listen[i]);
+		int reuseaddr = 1;
+		setsockopt(sock_listen[i], SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int));
+		if (bind(sock_listen[i], (struct sockaddr *)res->ai_addr, res->ai_addrlen) != 0)
+		{
+			ERR("bind");
+			return 2;
+		}
+		freeaddrinfo(res);
+		if (listen(sock_listen[i], 1024) != 0)
+		{
+			ERR("listen");
+			return 2;
+		}
+		ev_io_init(&(w_listen[i]), accept_cb, sock_listen[i], EV_READ);
+		w_listen[i].data = (void *)(long)i;
+		ev_io_start(EV_A_ &(w_listen[i]));
+		LOG("starting osocks at %s:%s", conf.server[i].address, conf.server[i].port);
+	}
+
 	// 执行事件循环
-	LOG("starting osocks at %s:%s", conf.server_addr, conf.server_port);
 	ev_run(loop, 0);
 
 	// 退出
-	close(sock_listen);
 	LOG("Exit");
+	for (int i = 0; i < conf.server_num; i++)
+	{
+		close(sock_listen[i]);
+	}
 
 	return 0;
 }
@@ -317,6 +369,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	}
 	setnonblock(conn->sock_local);
 	settimeout(conn->sock_local);
+	conn->server_index = (int)(long)(w->data);
 	conn->state = CLOSED;
 	ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
 	ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
@@ -362,8 +415,8 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			return;
 		}
 		memcpy(conn->tx_buf, conn->rx_buf + 276, 236);
-		memcpy(conn->tx_buf + 236, server.key, server.key_len);
-		md5(conn->tx_buf, 236 + server.key_len, key);
+		memcpy(conn->tx_buf + 236, servers[conn->server_index].key, servers[conn->server_index].key_len);
+		md5(conn->tx_buf, 236 + servers[conn->server_index].key_len, key);
 		md5(key, 16, key + 16);
 		md5(key, 32, key + 32);
 		md5(key, 48, key + 48);

@@ -35,18 +35,14 @@ int read_conf(const char *file, conf_t *conf)
 		return -1;
 	}
 
-	conf->server_addr = NULL;
-	conf->server_port = NULL;
-	conf->key = NULL;
-	conf->local_addr = NULL;
-	conf->local_port = NULL;
+	bzero(conf, sizeof(conf_t));
 
 	int line_num = 0;
 	char buf[MAX_LINE];
 	enum
 	{
 		null = 0,
-		server,
+		servers,
 		local
 	} section = null;
 
@@ -80,7 +76,8 @@ int read_conf(const char *file, conf_t *conf)
 			// 新的 section
 			if (strcmp(line, "[server]") == 0)
 			{
-				section = server;
+				conf->server_num++;
+				section = servers;
 			}
 			else if (strcmp(line, "[local]") == 0)
 			{
@@ -105,50 +102,54 @@ int read_conf(const char *file, conf_t *conf)
 			*p = '\0';
 			char *name = line;
 			char *value = p + 1;
-			if (section == server)
+			if (section == servers)
 			{
+				if (conf->server_num > MAX_SERVER)
+				{
+					continue;
+				}
 				if (strcmp(name, "address") == 0)
 				{
-					if (conf->server_addr != NULL)
+					if (conf->server[conf->server_num - 1].address != NULL)
 					{
-						free(conf->server_addr);
+						free(conf->server[conf->server_num - 1].address);
 					}
-					conf->server_addr = strdup(value);
+					conf->server[conf->server_num - 1].address = strdup(value);
 				}
 				else if (strcmp(name, "port") == 0)
 				{
-					if (conf->server_port != NULL)
+					if (conf->server[conf->server_num - 1].port != NULL)
 					{
-						free(conf->server_port);
+						free(conf->server[conf->server_num - 1].port);
 					}
-					conf->server_port = strdup(value);
+					conf->server[conf->server_num - 1].port = strdup(value);
 				}
 				else if (strcmp(name, "key") == 0)
 				{
-					if (conf->key != NULL)
+					if (conf->server[conf->server_num - 1].key != NULL)
 					{
-						free(conf->key);
+						free(conf->server[conf->server_num - 1].key);
 					}
-					conf->key = strdup(value);
+					conf->server[conf->server_num - 1].key = strdup(value);
 				}
 			}
 			else if (section == local)
 			{
 				if (strcmp(name, "address") == 0)
 				{
-					if (conf->local_addr != NULL)
+					if (conf->local.address != NULL)
 					{
-						free(conf->local_addr);
+						free(conf->local.address);
 					}
-					conf->local_addr = strdup(value);
+					conf->local.address = strdup(value);
 				}
 				else if (strcmp(name, "port") == 0)
 				{
-					if (conf->local_port != NULL)
+					if (conf->local.port != NULL)
 					{
-						free(conf->local_port);
+						free(conf->local.port);
 					}
-					conf->local_port = strdup(value);
+					conf->local.port = strdup(value);
 				}
 			}
 			else

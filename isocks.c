@@ -99,8 +99,11 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents);
 static void closewait_cb(EV_P_ ev_timer *w, int revents);
 static int setnonblock(int sock);
 static int settimeout(int sock);
-static void rand_bytes(uint8_t *stream, size_t len);
+static void rand_bytes(void *stream, size_t len);
 static void cleanup(EV_P_ conn_t *conn);
+
+// 配置信息
+conf_t conf;
 
 // 服务器的信息
 struct
@@ -110,13 +113,11 @@ struct
 	int family;
 	char *key;
 	size_t key_len;
-} server = { .key = NULL, .key_len = 0};
-
+} servers[MAX_SERVER];
 
 int main(int argc, char **argv)
 {
 	const char *conf_file = NULL;
-	conf_t conf = { NULL};
 
 	// 处理命令行参数
 	for (int i = 1; i < argc; i++)
@@ -143,7 +144,8 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			conf.server_addr = argv[i + 1];
+			conf.server_num = 1;
+			conf.server[0].address = argv[i + 1];
 			i++;
 		}
 		else if (strcmp(argv[i], "-p") == 0)
@@ -153,7 +155,8 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			conf.server_port = argv[i + 1];
+			conf.server_num = 1;
+			conf.server[0].port = argv[i + 1];
 			i++;
 		}
 		else if (strcmp(argv[i], "-b") == 0)
@@ -163,7 +166,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			conf.local_addr = argv[i + 1];
+			conf.local.address = argv[i + 1];
 			i++;
 		}
 		else if (strcmp(argv[i], "-l") == 0)
@@ -173,7 +176,7 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			conf.local_port = argv[i + 1];
+			conf.local.port = argv[i + 1];
 			i++;
 		}
 		else if (strcmp(argv[i], "-k") == 0)
@@ -183,7 +186,8 @@ int main(int argc, char **argv)
 				fprintf(stderr, "Invalid option: %s\n", argv[i]);
 				return 1;
 			}
-			conf.key = argv[i + 1];
+			conf.server_num = 1;
+			conf.server[0].key = argv[i + 1];
 			i++;
 		}
 		else
@@ -199,58 +203,69 @@ int main(int argc, char **argv)
 			return 1;
 		}
 	}
-	if (conf.server_addr == NULL)
-	{
-		conf.server_addr = "0.0.0.0";
-	}
-	if (conf.server_port == NULL)
-	{
-		conf.server_port = "1205";
-	}
-	if (conf.local_addr == NULL)
-	{
-		conf.local_addr = "127.0.0.1";
-	}
-	if (conf.local_port == NULL)
-	{
-		conf.local_port = "1080";
-	}
-	if (conf.key == NULL)
+	if (conf.server_num == 0)
 	{
 		help();
 		return 1;
 	}
+	for (int i = 0; i < conf.server_num; i++)
+	{
+		if (conf.server[i].address == NULL)
+		{
+			conf.server[i].address = "0.0.0.0";
+		}
+		if (conf.server[i].port == NULL)
+		{
+			conf.server[i].port = "1205";
+		}
+		if (conf.server[i].key == NULL)
+		{
+			help();
+			return 1;
+		}
+	}
+	if (conf.local.address == NULL)
+	{
+		conf.local.address = "127.0.0.1";
+	}
+	if (conf.local.port == NULL)
+	{
+		conf.local.port = "1080";
+	}
 
 	// 服务器信息
-	server.key = conf.key;
-	server.key_len = strlen(conf.key);
-	if (server.key_len > 256)
-	{
-		server.key[257] = '\0';
-		server.key_len = 256;
-	}
 	struct addrinfo hints;
 	struct addrinfo *res;
-	bzero(&hints, sizeof(struct addrinfo));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	if (getaddrinfo(conf.server_addr, conf.server_port, &hints, &res) != 0)
+	for (int i = 0; i < conf.server_num; i++)
 	{
-		LOG("Wrong server_host/server_port");
-		return 2;
+		servers[i].key = conf.server[i].key;
+		servers[i].key_len = strlen(servers[i].key);
+		if (servers[i].key_len > 256)
+		{
+			servers[i].key[257] = '\0';
+			servers[i].key_len = 256;
+		}
+		bzero(&hints, sizeof(struct addrinfo));
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		if (getaddrinfo(conf.server[i].address, conf.server[i].port, &hints, &res) != 0)
+		{
+			LOG("wrong server_host/server_port");
+			return 2;
+		}
+		memcpy(servers[i].addr, res->ai_addr, res->ai_addrlen);
+		servers[i].addrlen = res->ai_addrlen;
+		servers[i].family = res->ai_family;
+		freeaddrinfo(res);
 	}
-	memcpy(server.addr, res->ai_addr, res->ai_addrlen);
-	server.addrlen = res->ai_addrlen;
-	server.family = res->ai_family;
-	freeaddrinfo(res);
 
 	// 初始化本地监听 socket
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	if (getaddrinfo(conf.local_addr, conf.local_port, &hints, &res) != 0)
+	if (getaddrinfo(conf.local.address, conf.local.port, &hints, &res) != 0)
 	{
-		LOG("Wrong local_host/local_port");
+		LOG("wrong local_host/local_port");
 		return 2;
 	}
 	int sock_listen = socket(res->ai_family, SOCK_STREAM, IPPROTO_TCP);
@@ -296,7 +311,7 @@ int main(int argc, char **argv)
 	ev_io_start(loop, &w_listen);
 
 	// 执行事件循环
-	LOG("starting isocks at %s:%s", conf.local_addr, conf.local_port);
+	LOG("starting isocks at %s:%s", conf.local.address, conf.local.port);
 	ev_run(loop, 0);
 
 	// 退出
@@ -481,6 +496,10 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		if (error == 0)
 		{
 			LOG("connect %s:%s", host, port);
+			// 随机选择一个 server
+			unsigned int index;
+			rand_bytes(&index, sizeof(unsigned int));
+			index %= conf.server_num;
 			// iosocks 请求
 			// +-------+------+------+------+
 			// | MAGIC | HOST | PORT |  IV  |
@@ -489,8 +508,8 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			// +-------+------+------+------+
 			uint8_t key[64];
 			rand_bytes(conn->rx_buf, 236);
-			memcpy(conn->rx_buf + 236, server.key, server.key_len);
-			md5(conn->rx_buf, 236 + server.key_len, key);
+			memcpy(conn->rx_buf + 236, servers[index].key, servers[index].key_len);
+			md5(conn->rx_buf, 236 + servers[index].key_len, key);
 			md5(key, 16, key + 16);
 			md5(key, 32, key + 32);
 			md5(key, 48, key + 48);
@@ -503,7 +522,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
 			conn->tx_bytes = 512;
 			// 建立远程连接
-			conn->sock_remote = socket(server.family, SOCK_STREAM, IPPROTO_TCP);
+			conn->sock_remote = socket(servers[index].family, SOCK_STREAM, IPPROTO_TCP);
 			if (conn->sock_remote < 0)
 			{
 				ERR("socket");
@@ -517,7 +536,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			conn->w_remote_write.data = (void *)conn;
 			ev_io_start(EV_A_ &conn->w_remote_write);
 			conn->state = CMD_RCVD;
-			connect(conn->sock_remote, (struct sockaddr *)server.addr, server.addrlen);
+			connect(conn->sock_remote, (struct sockaddr *)servers[index].addr, servers[index].addrlen);
 		}
 		else
 		{
@@ -981,7 +1000,7 @@ static int settimeout(int sock)
 	return 0;
 }
 
-static void rand_bytes(uint8_t *stream, size_t len)
+static void rand_bytes(void *stream, size_t len)
 {
 	static int urand = -1;
 	if (urand == -1)

@@ -20,12 +20,21 @@
 #ifndef CONF_H
 #define CONF_H
 
+#define MAX_SERVER 16
+
 typedef struct {
-	char *server_addr;
-	char *server_port;
-	char *key;
-	char *local_addr;
-	char *local_port;
+	int server_num;
+	struct
+	{
+		char *address;
+		char *port;
+		char *key;
+	} server[MAX_SERVER];
+	struct
+	{
+		char *address;
+		char *port;
+	} local;
 } conf_t;
 
 extern int read_conf(const char *file, conf_t *conf);
