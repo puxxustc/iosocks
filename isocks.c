@@ -97,10 +97,11 @@ static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
 static void remote_write_cb(EV_P_ ev_io *w, int revents);
 static void closewait_cb(EV_P_ ev_timer *w, int revents);
+static void cleanup(EV_P_ conn_t *conn);
+static void rand_bytes(void *stream, size_t len);
 static int setnonblock(int sock);
 static int settimeout(int sock);
-static void rand_bytes(void *stream, size_t len);
-static void cleanup(EV_P_ conn_t *conn);
+static int setreuseaddr(int sock);
 
 // 配置信息
 conf_t conf;
@@ -293,8 +294,7 @@ int main(int argc, char **argv)
 		return 2;
 	}
 	setnonblock(sock_listen);
-	int reuseaddr = 1;
-	setsockopt(sock_listen, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int));
+	setreuseaddr(sock_listen);
 	if (bind(sock_listen, (struct sockaddr *)res->ai_addr, res->ai_addrlen) != 0)
 	{
 		ERR("bind");
@@ -971,6 +971,17 @@ static void closewait_cb(EV_P_ ev_timer *w, int revents)
 	mem_delete(conn);
 }
 
+static void cleanup(EV_P_ conn_t *conn)
+{
+	ev_io_stop(EV_A_ &conn->w_local_read);
+	ev_io_stop(EV_A_ &conn->w_local_write);
+	ev_io_stop(EV_A_ &conn->w_remote_read);
+	ev_io_stop(EV_A_ &conn->w_remote_write);
+	close(conn->sock_local);
+	close(conn->sock_remote);
+	mem_delete(conn);
+}
+
 static int setnonblock(int sock)
 {
 	int flags;
@@ -1000,6 +1011,16 @@ static int settimeout(int sock)
 	return 0;
 }
 
+static int setreuseaddr(int sock)
+{
+	int reuseaddr = 1;
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int)) != 0)
+	{
+		return -1;
+	}
+	return 0;
+}
+
 static void rand_bytes(void *stream, size_t len)
 {
 	static int urand = -1;
@@ -1008,15 +1029,4 @@ static void rand_bytes(void *stream, size_t len)
 		urand = open("/dev/urandom", O_RDONLY, 0);
 	}
 	read(urand, stream, len);
-}
-
-static void cleanup(EV_P_ conn_t *conn)
-{
-	ev_io_stop(EV_A_ &conn->w_local_read);
-	ev_io_stop(EV_A_ &conn->w_local_write);
-	ev_io_stop(EV_A_ &conn->w_remote_read);
-	ev_io_stop(EV_A_ &conn->w_remote_write);
-	close(conn->sock_local);
-	close(conn->sock_remote);
-	mem_delete(conn);
 }

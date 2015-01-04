@@ -107,9 +107,10 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents);
 static void connect_cb(EV_P_ ev_io *w, int revents);
 static void resolv_cb(int signo, siginfo_t *info, void *context);
 static void closewait_cb(EV_P_ ev_timer *w, int revents);
+static void cleanup(EV_P_ conn_t *conn);
 static int setnonblock(int sock);
 static int settimeout(int sock);
-static void cleanup(EV_P_ conn_t *conn);
+static int setreuseaddr(int sock);
 
 // 服务器的信息
 typedef struct
@@ -304,8 +305,7 @@ int main(int argc, char **argv)
 			return 2;
 		}
 		setnonblock(sock_listen[i]);
-		int reuseaddr = 1;
-		setsockopt(sock_listen[i], SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int));
+		setreuseaddr(sock_listen[i]);
 		if (bind(sock_listen[i], (struct sockaddr *)res->ai_addr, res->ai_addrlen) != 0)
 		{
 			ERR("bind");
@@ -819,6 +819,17 @@ static void closewait_cb(EV_P_ ev_timer *w, int revents)
 	mem_delete(conn);
 }
 
+static void cleanup(EV_P_ conn_t *conn)
+{
+	ev_io_stop(EV_A_ &conn->w_local_read);
+	ev_io_stop(EV_A_ &conn->w_local_write);
+	ev_io_stop(EV_A_ &conn->w_remote_read);
+	ev_io_stop(EV_A_ &conn->w_remote_write);
+	close(conn->sock_local);
+	close(conn->sock_remote);
+	mem_delete(conn);
+}
+
 static int setnonblock(int sock)
 {
 	int flags;
@@ -848,13 +859,12 @@ static int settimeout(int sock)
 	return 0;
 }
 
-static void cleanup(EV_P_ conn_t *conn)
+static int setreuseaddr(int sock)
 {
-	ev_io_stop(EV_A_ &conn->w_local_read);
-	ev_io_stop(EV_A_ &conn->w_local_write);
-	ev_io_stop(EV_A_ &conn->w_remote_read);
-	ev_io_stop(EV_A_ &conn->w_remote_write);
-	close(conn->sock_local);
-	close(conn->sock_remote);
-	mem_delete(conn);
+	int reuseaddr = 1;
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int)) != 0)
+	{
+		return -1;
+	}
+	return 0;
 }
