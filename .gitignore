@@ -1,8 +1,15 @@
-# ignore build files
+.deps/
+/Makefile
+src/Makefile
+autom4te.cache/
+/config.h
+config.log
+config.status
+
 *.o
+*.tar.gz
 isocks
 osocks
 
-# ignore Qt Creator project files
 *.pro
 *.pro.user
