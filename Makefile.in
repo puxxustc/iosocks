@@ -146,7 +146,11 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(systemdservicedir)"
+man8dir = $(mandir)/man8
+am__installdirs = "$(DESTDIR)$(man8dir)" \
+	"$(DESTDIR)$(systemdservicedir)"
+NROFF = nroff
+MANS = $(man_MANS)
 DATA = $(systemdservice_DATA)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
@@ -312,7 +316,8 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = src
-EXTRA_DIST = isocks@.service osocks@.service
+EXTRA_DIST = iosocks.8 isocks@.service osocks@.service
+man_MANS = iosocks.8
 systemdservicedir = $(libdir)/systemd/system
 systemdservice_DATA = isocks@.service osocks@.service
 all: config.h
@@ -368,6 +373,49 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
+install-man8: $(man_MANS)
+	@$(NORMAL_INSTALL)
+	@list1=''; \
+	list2='$(man_MANS)'; \
+	test -n "$(man8dir)" \
+	  && test -n "`echo $$list1$$list2`" \
+	  || exit 0; \
+	echo " $(MKDIR_P) '$(DESTDIR)$(man8dir)'"; \
+	$(MKDIR_P) "$(DESTDIR)$(man8dir)" || exit 1; \
+	{ for i in $$list1; do echo "$$i"; done;  \
+	if test -n "$$list2"; then \
+	  for i in $$list2; do echo "$$i"; done \
+	    | sed -n '/\.8[a-z]*$$/p'; \
+	fi; \
+	} | while read p; do \
+	  if test -f $$p; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; echo "$$p"; \
+	done | \
+	sed -e 'n;s,.*/,,;p;h;s,.*\.,,;s,^[^8][0-9a-z]*$$,8,;x' \
+	      -e 's,\.[0-9a-z]*$$,,;$(transform);G;s,\n,.,' | \
+	sed 'N;N;s,\n, ,g' | { \
+	list=; while read file base inst; do \
+	  if test "$$base" = "$$inst"; then list="$$list $$file"; else \
+	    echo " $(INSTALL_DATA) '$$file' '$(DESTDIR)$(man8dir)/$$inst'"; \
+	    $(INSTALL_DATA) "$$file" "$(DESTDIR)$(man8dir)/$$inst" || exit $$?; \
+	  fi; \
+	done; \
+	for i in $$list; do echo "$$i"; done | $(am__base_list) | \
+	while read files; do \
+	  test -z "$$files" || { \
+	    echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(man8dir)'"; \
+	    $(INSTALL_DATA) $$files "$(DESTDIR)$(man8dir)" || exit $$?; }; \
+	done; }
+
+uninstall-man8:
+	@$(NORMAL_UNINSTALL)
+	@list=''; test -n "$(man8dir)" || exit 0; \
+	files=`{ for i in $$list; do echo "$$i"; done; \
+	l2='$(man_MANS)'; for i in $$l2; do echo "$$i"; done | \
+	  sed -n '/\.8[a-z]*$$/p'; \
+	} | sed -e 's,.*/,,;h;s,.*\.,,;s,^[^8][0-9a-z]*$$,8,;x' \
+	      -e 's,\.[0-9a-z]*$$,,;$(transform);G;s,\n,.,'`; \
+	dir='$(DESTDIR)$(man8dir)'; $(am__uninstall_files_from_dir)
 install-systemdserviceDATA: $(systemdservice_DATA)
 	@$(NORMAL_INSTALL)
 	@list='$(systemdservice_DATA)'; test -n "$(systemdservicedir)" || list=; \
@@ -686,10 +734,10 @@ distcleancheck: distclean
 	       exit 1; } >&2
 check-am: all-am
 check: check-recursive
-all-am: Makefile $(DATA) config.h
+all-am: Makefile $(MANS) $(DATA) config.h
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(systemdservicedir)"; do \
+	for dir in "$(DESTDIR)$(man8dir)" "$(DESTDIR)$(systemdservicedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -743,7 +791,7 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-systemdserviceDATA
+install-data-am: install-man install-systemdserviceDATA
 
 install-dvi: install-dvi-recursive
 
@@ -759,7 +807,7 @@ install-info: install-info-recursive
 
 install-info-am:
 
-install-man:
+install-man: install-man8
 
 install-pdf: install-pdf-recursive
 
@@ -789,7 +837,9 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-systemdserviceDATA
+uninstall-am: uninstall-man uninstall-systemdserviceDATA
+
+uninstall-man: uninstall-man8
 
 .MAKE: $(am__recursive_targets) all install-am install-strip
 
@@ -802,13 +852,13 @@ uninstall-am: uninstall-systemdserviceDATA
 	dvi-am html html-am info info-am install install-am \
 	install-data install-data-am install-dvi install-dvi-am \
 	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	install-systemdserviceDATA installcheck installcheck-am \
-	installdirs installdirs-am maintainer-clean \
+	install-info install-info-am install-man install-man8 \
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip install-systemdserviceDATA installcheck \
+	installcheck-am installdirs installdirs-am maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-generic pdf \
 	pdf-am ps ps-am tags tags-am uninstall uninstall-am \
-	uninstall-systemdserviceDATA
+	uninstall-man uninstall-man8 uninstall-systemdserviceDATA
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

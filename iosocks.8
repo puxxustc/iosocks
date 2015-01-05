@@ -1,0 +1,88 @@
+.TH IOSOCKS 8 "Jan 5, 2014"
+.SH NAME
+iosocks \- A lightweight SOCKS5 proxy
+
+.ds Is  \fBisocks\fR
+.ds Os  \fBosocks\fR
+.ds Me  \fBiosocks\fR
+
+.SH SYNOPSIS
+\*(Is|\*(Os
+    \-s <server_addr>   \-p <server_port>
+    \-b <local_addr>    \-l <local_port>
+    \-k <key>           \-c <config_file>
+
+.SH DESCRIPTION
+\*(Me is a lightweight SOCKS5 proxy written in pure C, using \fBlibev\fR as event loop library. It has high performance and low resource consumption.
+.PP
+\*(Me consists of two components. One is \*(Os that runs on a remote server
+to provide secured tunnel service. \*(Is is a standard SOCKS5 proxy that trasmits all data to \*(Os.
+.PP
+
+.SH OPTIONS
+.TP
+.B \-s \fI<server_host>\fR
+Server address, default: 0.0.0.0
+.TP
+.B \-p \fI<server_port>\fR
+Server port, default: 1205
+.TP
+.B \-b \fIlocal_address\fR
+Local address, default: 127.0.0.1
+.TP
+.B \-l \fI<local_port>\fR
+Local port, default: 1080
+.TP
+.B \-k \fI<key>\fR
+Encryption key
+.TP
+.B \-c \fI<config_file>\fR
+Config file. Other command line options will be ignored.
+
+.SH CONFIG FILE
+The syntax of the config file is inspired by Microsoft Windows \fI.ini\fP files.
+.SS SERVER
+.TP
+[server] section defines a remote server. This section can appear more than once.
+.TP
+\fIaddress=\fR
+.br
+Server address
+.TP
+\fIport=\fR
+.br
+Server port
+.TP
+\fIkey=\fR
+.br
+Encryption key
+
+.SS LOCAL
+[local] section defines a local client.
+.TP
+.B \fIaddress=\fR
+Local address
+.br
+.TP
+.B \fIport=\fR
+.br
+Local port
+
+.SH EXAMPLE
+Here is a sample config file:
+
+    [server]
+    address=192.168.1.1
+    port=1205
+    key=testkey
+    [server]
+    address=192.168.1.2
+    port=1205
+    key=testkey2
+    [local]
+    address=127.0.0.2
+    port=1080
+
+.SH AUTHOR
+.PP
+This manual page was written by Xiaoxiao Pu <i@xiaoxiao.im>.

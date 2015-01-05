@@ -8,7 +8,13 @@ isocks_SOURCES = conf.c \
                  log.c \
                  md5.c \
                  mem.c \
-                 rc4.c
+                 rc4.c \
+                 conf.h \
+                 encrypt.h \
+                 log.h \
+                 md5.h \
+                 mem.h \
+                 rc4.h
 
 osocks_SOURCES = conf.c \
                  encrypt.c \
@@ -16,4 +22,10 @@ osocks_SOURCES = conf.c \
                  log.c \
                  md5.c \
                  mem.c \
-                 rc4.c
+                 rc4.c \
+                 conf.h \
+                 encrypt.h \
+                 log.h \
+                 md5.h \
+                 mem.h \
+                 rc4.h

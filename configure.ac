@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([iosocks],[1.0.0],[i@xiaoxiao.im])
+AC_INIT([iosocks],[0.1.0],[i@xiaoxiao.im])
 AC_CONFIG_SRCDIR([iosocks])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
