@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([iosocks],[0.1.0],[i@xiaoxiao.im])
+AC_INIT([iosocks], [0.1.0], [i@xiaoxiao.im], [iosocks], [https://gitcafe.com/XiaoxiaoPu/iosocks])
 AC_CONFIG_SRCDIR([iosocks])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
@@ -11,7 +11,7 @@ AC_CONFIG_AUX_DIR(auto)
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 
 # Checks for programs.
-AC_PROG_CC
+AC_PROG_CC_C99
 AC_PROG_CXX
 AC_PROG_INSTALL
 

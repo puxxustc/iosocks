@@ -1,4 +1,4 @@
-AM_CFLAGS=-pipe -W -Wall -Wno-unused-parameter -std=gnu99 -O2 -fno-strict-aliasing -D_GNU_SOURCE
+AM_CFLAGS=-pipe -W -Wall -Wno-unused-parameter -fno-strict-aliasing -D_GNU_SOURCE
 
 bin_PROGRAMS = isocks osocks
 
