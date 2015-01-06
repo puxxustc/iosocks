@@ -90,6 +90,7 @@ static void rand_bytes(void *stream, size_t len);
 static int setnonblock(int sock);
 static int settimeout(int sock);
 static int setreuseaddr(int sock);
+static int setkeepalive(int sock);
 static int geterror(int sock);
 
 // 配置信息
@@ -329,6 +330,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	}
 	setnonblock(conn->sock_local);
 	settimeout(conn->sock_local);
+	setkeepalive(conn->sock_local);
 	ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
 	conn->w_local_read.data = (void *)conn;
 	ev_io_start(EV_A_ &conn->w_local_read);
@@ -429,6 +431,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	}
 	setnonblock(conn->sock_remote);
 	settimeout(conn->sock_remote);
+	setkeepalive(conn->sock_remote);
 	ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
 	conn->w_remote_write.data = (void *)conn;
 	ev_io_start(EV_A_ &conn->w_remote_write);
@@ -445,6 +448,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 
 	if (geterror(w->fd) == 0)
 	{
+		// 连接成功
 		ev_io_init(&conn->w_remote_write, remote_write_cb, conn->sock_remote, EV_WRITE);
 		conn->w_remote_write.data = conn;
 		ev_io_start(EV_A_ &conn->w_remote_write);
@@ -452,6 +456,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	}
 	else
 	{
+		// 连接失败
 		LOG("connect to osocks failed");
 		close(conn->sock_local);
 		close(conn->sock_remote);
@@ -667,6 +672,16 @@ static int setreuseaddr(int sock)
 {
 	int reuseaddr = 1;
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int)) != 0)
+	{
+		return -1;
+	}
+	return 0;
+}
+
+static int setkeepalive(int sock)
+{
+	int keepalive = 1;
+	if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(int)) != 0)
 	{
 		return -1;
 	}

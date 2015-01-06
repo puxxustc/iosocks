@@ -12,7 +12,6 @@ AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 
 # Checks for programs.
 AC_PROG_CC_C99
-AC_PROG_CXX
 AC_PROG_INSTALL
 
 # Checks for libraries.
