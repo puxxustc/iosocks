@@ -145,7 +145,7 @@ int main(int argc, char **argv)
 	}
 	if (conf_file == NULL)
 	{
-		LOG("no config file specified");
+		help();
 		return 1;
 	}
 	if (read_conf(conf_file, &conf) != 0)
@@ -288,6 +288,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	conn_t *conn = (conn_t *)mem_new(sizeof(conn_t));
 	if (conn == NULL)
 	{
+		LOG("out of memory");
 		return;
 	}
 	conn->sock_local = accept(w->fd, NULL, NULL);
@@ -593,6 +594,7 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 			ev_timer *w_timer = (ev_timer *)mem_new(sizeof(ev_timer));
 			if (w_timer == NULL)
 			{
+				LOG("out of memory");
 				close(conn->sock_local);
 				mem_delete(conn);
 				return;
@@ -632,6 +634,7 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 			ev_timer *w_timer = (ev_timer *)mem_new(sizeof(ev_timer));
 			if (w_timer == NULL)
 			{
+				LOG("out of memory");
 				close(conn->sock_local);
 				mem_delete(conn);
 				return;

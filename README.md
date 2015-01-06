@@ -15,36 +15,62 @@ sudo yum install libev-devel
 sudo apt-get install libev-devel
 ```
 
-### make ###
+### make & install ###
 
 ```bash
 cd iosocks
+./configure
 make
+sudo make install
 ```
 
 ## Usage ##
 
-**Client**
+**isocks**
 
 ```bash
 usage: isocks
   -h, --help        show this help
-  -s <server_addr>  server address, default: 0.0.0.0
-  -p <server_port>  server port, default: 1205
-  -b <local_addr>   local binding address, default: 127.0.0.1
-  -l <local_port>   local port, default: 1080
-  -k <key>          encryption key
+  -c <config_file>  config file, see iosocks(8) for its syntax
 ```
 
-**Server**
+**osocks**
 
 ```bash
 usage: osocks
   -h, --help        show this help
-  -s <server_addr>  server address, default: 0.0.0.0
-  -p <server_port>  server port, default: 1205
-  -k <key>          encryption key
+  -c <config_file>  config file, see iosocks(8) for its syntax
 ```
+
+**iodns**
+
+```bash
+usage: iodns
+  -h, --help        show this help
+  -c <config_file>  config file, see iosocks(8) for its syntax
+```
+
+**sample config file**
+
+```ini
+[server]
+address=192.168.1.1
+port=1205
+key=testkey
+[server]
+address=192.168.1.2
+port=1205
+key=testkey2
+[local]
+address=127.0.0.1
+port=1080
+[dns]
+address=127.0.0.1
+port=5300
+upstream_addr=8.8.8.8
+upstream_port=53
+```
+
 
 ## License ##
 

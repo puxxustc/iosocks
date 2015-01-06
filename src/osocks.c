@@ -148,7 +148,7 @@ int main(int argc, char **argv)
 	}
 	if (conf_file == NULL)
 	{
-		LOG("no config file specified");
+		help();
 		return 1;
 	}
 	if (read_conf(conf_file, &conf) != 0)

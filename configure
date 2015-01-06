@@ -583,7 +583,7 @@ PACKAGE_TARNAME='iosocks'
 PACKAGE_VERSION='0.1.0'
 PACKAGE_STRING='iosocks 0.1.0'
 PACKAGE_BUGREPORT='i@xiaoxiao.im'
-PACKAGE_URL='https://gitcafe.com/XiaoxiaoPu/iosocks'
+PACKAGE_URL='https://github.com/XiaoxiaoPu/iosocks'
 
 ac_unique_file="iosocks"
 ac_unique_file="config.h.in"
@@ -1373,7 +1373,7 @@ Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
 
 Report bugs to <i@xiaoxiao.im>.
-iosocks home page: <https://gitcafe.com/XiaoxiaoPu/iosocks>.
+iosocks home page: <https://github.com/XiaoxiaoPu/iosocks>.
 _ACEOF
 ac_status=$?
 fi
@@ -5876,7 +5876,7 @@ Configuration commands:
 $config_commands
 
 Report bugs to <i@xiaoxiao.im>.
-iosocks home page: <https://gitcafe.com/XiaoxiaoPu/iosocks>."
+iosocks home page: <https://github.com/XiaoxiaoPu/iosocks>."
 
 _ACEOF
 cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1

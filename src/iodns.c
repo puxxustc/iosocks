@@ -1,5 +1,5 @@
 /*
- * iodns.c - a dns server that forward all requests to osocks
+ * iodns.c - A dns server that forward all requests to osocks
  *
  * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -65,11 +65,12 @@ typedef struct
 	ssize_t tx_offset;
 	int sock_local;
 	int sock_remote;
-	enum
+	int type;
+	struct
 	{
-		tcp = 0,
-		udp
-	} type;
+		char addr[128];
+		socklen_t addrlen;
+	} udp;
 	enc_evp_t enc_evp;
 	uint8_t rx_buf[BUF_SIZE];
 	uint8_t tx_buf[BUF_SIZE];
@@ -134,7 +135,7 @@ int main(int argc, char **argv)
 	}
 	if (conf_file == NULL)
 	{
-		LOG("no config file specified");
+		help();
 		return 1;
 	}
 	if (read_conf(conf_file, &conf) != 0)
@@ -315,8 +316,10 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	conn_t *conn = (conn_t *)mem_new(sizeof(conn_t));
 	if (conn == NULL)
 	{
+		LOG("out of memory");
 		return;
 	}
+	conn->type = SOCK_STREAM;
 	conn->sock_local = accept(w->fd, NULL, NULL);
 	if (conn->sock_local < 0)
 	{
@@ -333,23 +336,43 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 
 static void local_read_cb(EV_P_ ev_io *w, int revents)
 {
-	conn_t *conn = (conn_t *)(w->data);
+	conn_t *conn;
 
-	assert(conn != NULL);
-
-	ev_io_stop(EV_A_ w);
-
-	// 接受 query
-	conn->tx_bytes = recv(conn->sock_local, conn->tx_buf + 512, BUF_SIZE, 0);
-	if (conn->tx_bytes <= 0)
+	if (w->data == NULL)
 	{
-		if (conn->tx_bytes < 0)
+		// UDP
+		conn = (conn_t *)mem_new(sizeof(conn_t));
+		if (conn == NULL)
 		{
-			LOG("client reset");
+			LOG("out of memory");
+			return;
 		}
-		close(conn->sock_local);
-		mem_delete(conn);
-		return;
+		conn->type = SOCK_DGRAM;
+		conn->sock_local = w->fd;
+		conn->w_local_read.data = (void *)conn;
+		conn->udp.addrlen = 128;
+		conn->tx_bytes = recvfrom(conn->sock_local, conn->tx_buf + 512 + 2,
+		                          BUF_SIZE, 0,
+		                          (struct sockaddr *)conn->udp.addr,
+		                          &conn->udp.addrlen);
+		*((uint16_t *)(conn->tx_buf + 512)) = htons((uint16_t)conn->tx_bytes);
+		conn->tx_bytes += 2;
+	}
+	else
+	{
+		conn = (conn_t *)(w->data);
+		ev_io_stop(EV_A_ w);
+		conn->tx_bytes = recv(conn->sock_local, conn->tx_buf + 512, BUF_SIZE, 0);
+		if (conn->tx_bytes <= 0)
+		{
+			if (conn->tx_bytes < 0)
+			{
+				LOG("client reset");
+			}
+			close(conn->sock_local);
+			mem_delete(conn);
+			return;
+		}
 	}
 
 	// 随机选择一个 server
@@ -435,6 +458,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 		mem_delete(conn);
 	}
 }
+
 static void remote_write_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
@@ -493,47 +517,63 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 		mem_delete(conn);
 		return;
 	}
+	close(conn->sock_remote);
+
 	io_decrypt(conn->rx_buf, conn->rx_bytes, &conn->enc_evp);
-	ssize_t n = send(conn->sock_local, conn->rx_buf, conn->rx_bytes, MSG_NOSIGNAL);
-	if (n < 0)
+	if (conn->type == SOCK_DGRAM)
 	{
-		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+		ssize_t n = sendto(conn->sock_local, conn->rx_buf + 2,
+		                   conn->rx_bytes - 2, 0,
+		                   (struct sockaddr *)conn->udp.addr,
+		                   (socklen_t)conn->udp.addrlen);
+		if (n < 0)
 		{
-			conn->rx_offset = 0;
-		}
-		else
-		{
-			ERR("send");
-			close(conn->sock_local);
-			close(conn->sock_remote);
+			ERR("sendto");
 			mem_delete(conn);
-			return;
 		}
-	}
-	else if (n < conn->rx_bytes)
-	{
-		conn->rx_offset = n;
-		conn->rx_bytes -= n;
 	}
 	else
 	{
-		ev_timer *w_timer = (ev_timer *)mem_new(sizeof(ev_timer));
-		if (w_timer == NULL)
+		ssize_t n = send(conn->sock_local, conn->rx_buf, conn->rx_bytes, MSG_NOSIGNAL);
+		if (n < 0)
 		{
-			LOG("out of memory");
-			close(conn->sock_local);
+			if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+			{
+				conn->rx_offset = 0;
+			}
+			else
+			{
+				ERR("send");
+				close(conn->sock_local);
+				mem_delete(conn);
+				return;
+			}
+		}
+		else if (n < conn->rx_bytes)
+		{
+			conn->rx_offset = n;
+			conn->rx_bytes -= n;
+		}
+		else
+		{
+			ev_timer *w_timer = (ev_timer *)mem_new(sizeof(ev_timer));
+			if (w_timer == NULL)
+			{
+				LOG("out of memory");
+				close(conn->sock_local);
+				close(conn->sock_remote);
+				mem_delete(conn);
+				return;
+			}
 			close(conn->sock_remote);
-			mem_delete(conn);
+			ev_timer_init(w_timer, closewait_cb, 1.0, 0);
+			w_timer->data = (void *)conn;
+			ev_timer_start(EV_A_ w_timer);
 			return;
 		}
-		close(conn->sock_remote);
-		ev_timer_init(w_timer, closewait_cb, 1.0, 0);
-		w_timer->data = (void *)conn;
-		ev_timer_start(EV_A_ w_timer);
-		return;
+		ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
+		ev_io_start(EV_A_ &conn->w_local_write);
 	}
-	ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
-	ev_io_start(EV_A_ &conn->w_local_write);
 }
 
 static void local_write_cb(EV_P_ ev_io *w, int revents)
