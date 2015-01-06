@@ -1,4 +1,4 @@
-.TH IOSOCKS 8 "Jan 5, 2014"
+.TH IOSOCKS 8 "Jan 6, 2015"
 .SH NAME
 iosocks \- A lightweight SOCKS5 proxy
 
@@ -8,9 +8,8 @@ iosocks \- A lightweight SOCKS5 proxy
 
 .SH SYNOPSIS
 \*(Is|\*(Os
-    \-s <server_addr>   \-p <server_port>
-    \-b <local_addr>    \-l <local_port>
-    \-k <key>           \-c <config_file>
+    \-h, \-\-help
+    \-c <config_file>
 
 .SH DESCRIPTION
 \*(Me is a lightweight SOCKS5 proxy written in pure C, using \fBlibev\fR as event loop library. It has high performance and low resource consumption.
@@ -21,23 +20,11 @@ to provide secured tunnel service. \*(Is is a standard SOCKS5 proxy that trasmit
 
 .SH OPTIONS
 .TP
-.B \-s \fI<server_host>\fR
-Server address, default: 0.0.0.0
-.TP
-.B \-p \fI<server_port>\fR
-Server port, default: 1205
-.TP
-.B \-b \fIlocal_address\fR
-Local address, default: 127.0.0.1
-.TP
-.B \-l \fI<local_port>\fR
-Local port, default: 1080
-.TP
-.B \-k \fI<key>\fR
-Encryption key
-.TP
 .B \-c \fI<config_file>\fR
-Config file. Other command line options will be ignored.
+Config file.
+.TP
+.B \-h, \-\-help
+Print a help message and exit.
 
 .SH CONFIG FILE
 The syntax of the config file is inspired by Microsoft Windows \fI.ini\fP files.

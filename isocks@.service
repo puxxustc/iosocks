@@ -1,5 +1,5 @@
 [Unit]
-Description=Iosocks Client Service
+Description=isocks service
 After=network.target
 
 [Service]

@@ -140,71 +140,20 @@ int main(int argc, char **argv)
 			conf_file = argv[i + 1];
 			i++;
 		}
-		else if (strcmp(argv[i], "-s") == 0)
-		{
-			if (i + 2 > argc)
-			{
-				fprintf(stderr, "Invalid option: %s\n", argv[i]);
-				return 1;
-			}
-			conf.server_num = 1;
-			conf.server[0].address = argv[i + 1];
-			i++;
-		}
-		else if (strcmp(argv[i], "-p") == 0)
-		{
-			if (i + 2 > argc)
-			{
-				fprintf(stderr, "Invalid option: %s\n", argv[i]);
-				return 1;
-			}
-			conf.server_num = 1;
-			conf.server[0].port = argv[i + 1];
-			i++;
-		}
-		else if (strcmp(argv[i], "-b") == 0)
-		{
-			if (i + 2 > argc)
-			{
-				fprintf(stderr, "Invalid option: %s\n", argv[i]);
-				return 1;
-			}
-			conf.local.address = argv[i + 1];
-			i++;
-		}
-		else if (strcmp(argv[i], "-l") == 0)
-		{
-			if (i + 2 > argc)
-			{
-				fprintf(stderr, "Invalid option: %s\n", argv[i]);
-				return 1;
-			}
-			conf.local.port = argv[i + 1];
-			i++;
-		}
-		else if (strcmp(argv[i], "-k") == 0)
-		{
-			if (i + 2 > argc)
-			{
-				fprintf(stderr, "Invalid option: %s\n", argv[i]);
-				return 1;
-			}
-			conf.server_num = 1;
-			conf.server[0].key = argv[i + 1];
-			i++;
-		}
 		else
 		{
 			fprintf(stderr, "Invalid option: %s\n", argv[i]);
 			return 1;
 		}
 	}
-	if (conf_file != NULL)
+	if (conf_file == NULL)
 	{
-		if (read_conf(conf_file, &conf) != 0)
-		{
-			return 1;
-		}
+		LOG("no config file specified");
+		return 1;
+	}
+	if (read_conf(conf_file, &conf) != 0)
+	{
+		return 1;
 	}
 	if (conf.server_num == 0)
 	{
@@ -226,14 +175,6 @@ int main(int argc, char **argv)
 			help();
 			return 1;
 		}
-	}
-	if (conf.local.address == NULL)
-	{
-		conf.local.address = "127.0.0.1";
-	}
-	if (conf.local.port == NULL)
-	{
-		conf.local.port = "1080";
 	}
 
 	// 服务器信息
@@ -334,9 +275,7 @@ static void help(void)
 {
 	printf("usage: osocks\n"
 		   "  -h, --help        show this help\n"
-		   "  -s <server_addr>  server address, default: 0.0.0.0\n"
-		   "  -p <server_port>  server port, default: 1205\n"
-		   "  -k <key>          encryption key\n"
+		   "  -c <config_file>  config file, see iosocks(8) for its syntax\n"
 		   "");
 }
 
