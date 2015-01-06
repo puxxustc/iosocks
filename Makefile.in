@@ -316,10 +316,10 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = src
-EXTRA_DIST = iosocks.8 isocks@.service osocks@.service
+EXTRA_DIST = iosocks.8 isocks@.service iodns@.service osocks@.service
 man_MANS = iosocks.8
 systemdservicedir = $(libdir)/systemd/system
-systemdservice_DATA = isocks@.service osocks@.service
+systemdservice_DATA = isocks@.service iodns@.service osocks@.service
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 

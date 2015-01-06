@@ -3,6 +3,9 @@
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
 
+/* Define to 1 if you have the <arpa/nameser.h> header file. */
+#undef HAVE_ARPA_NAMESER_H
+
 /* Define to 1 if you have the `bzero' function. */
 #undef HAVE_BZERO
 
@@ -21,6 +24,9 @@
 /* Define to 1 if you have the `ev' library (-lev). */
 #undef HAVE_LIBEV
 
+/* Define to 1 if you have the `resolv' library (-lresolv). */
+#undef HAVE_LIBRESOLV
+
 /* Define to 1 if your system has a GNU libc compatible `malloc' function, and
    to 0 otherwise. */
 #undef HAVE_MALLOC
@@ -36,6 +42,9 @@
 
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #undef HAVE_NETINET_IN_H
+
+/* Define to 1 if you have the <resolv.h> header file. */
+#undef HAVE_RESOLV_H
 
 /* Define to 1 if you have the `socket' function. */
 #undef HAVE_SOCKET

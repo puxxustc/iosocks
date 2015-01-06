@@ -4,18 +4,18 @@ iosocks \- A lightweight SOCKS5 proxy
 
 .ds Is  \fBisocks\fR
 .ds Os  \fBosocks\fR
+.ds Ns  \fBiodns\fR
 .ds Me  \fBiosocks\fR
 
 .SH SYNOPSIS
-\*(Is|\*(Os
+\*(Is|\*(Os|\*(Ns
     \-h, \-\-help
     \-c <config_file>
 
 .SH DESCRIPTION
 \*(Me is a lightweight SOCKS5 proxy written in pure C, using \fBlibev\fR as event loop library. It has high performance and low resource consumption.
 .PP
-\*(Me consists of two components. One is \*(Os that runs on a remote server
-to provide secured tunnel service. \*(Is is a standard SOCKS5 proxy that trasmits all data to \*(Os.
+\*(Me consists of three components. \*(Os runs on a remote server to provide secured tunnel service. \*(Is is a standard SOCKS5 proxy that trasmits all data to \*(Os. \*(Ns is a DNS forwarder that transmits all DNS queries to \*(Os.
 .PP
 
 .SH OPTIONS
@@ -34,11 +34,11 @@ The syntax of the config file is inspired by Microsoft Windows \fI.ini\fP files.
 .TP
 \fIaddress=\fR
 .br
-Server address
+Server address, default: 0.0.0.0
 .TP
 \fIport=\fR
 .br
-Server port
+Server port, default: 1205
 .TP
 \fIkey=\fR
 .br
@@ -48,12 +48,32 @@ Encryption key
 [local] section defines a local client.
 .TP
 .B \fIaddress=\fR
-Local address
+Local address, default: 127.0.0.1
 .br
 .TP
 .B \fIport=\fR
 .br
-Local port
+Local port, default: 1080
+
+.SS DNS
+[dns] section defines a DNS server.
+.TP
+.B \fIaddress=\fR
+DNS listen address, default: 127.0.0.1
+.br
+.TP
+.B \fIport=\fR
+.br
+DNS listen port, default: 5300
+.TP
+.B \fIupstream_addr=\fR
+Upstream DNS server address, default: 8.8.8.8
+.br
+.TP
+.B \fIupstream_port=\fR
+.br
+Upstream DNS server port, default: 53
+
 
 .SH EXAMPLE
 Here is a sample config file:
@@ -67,8 +87,13 @@ Here is a sample config file:
     port=1205
     key=testkey2
     [local]
-    address=127.0.0.2
+    address=127.0.0.1
     port=1080
+    [dns]
+    address=127.0.0.1
+    port=5300
+    upstream_addr=8.8.8.8
+    upstream_port=53
 
 .SH AUTHOR
 .PP

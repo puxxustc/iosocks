@@ -76,7 +76,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = isocks$(EXEEXT) osocks$(EXEEXT)
+bin_PROGRAMS = isocks$(EXEEXT) iodns$(EXEEXT) osocks$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/auto/depcomp
@@ -90,6 +90,10 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
+am_iodns_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) iodns.$(OBJEXT) \
+	log.$(OBJEXT) md5.$(OBJEXT) mem.$(OBJEXT) rc4.$(OBJEXT)
+iodns_OBJECTS = $(am_iodns_OBJECTS)
+iodns_LDADD = $(LDADD)
 am_isocks_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) isocks.$(OBJEXT) \
 	log.$(OBJEXT) md5.$(OBJEXT) mem.$(OBJEXT) rc4.$(OBJEXT)
 isocks_OBJECTS = $(am_isocks_OBJECTS)
@@ -126,8 +130,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(isocks_SOURCES) $(osocks_SOURCES)
-DIST_SOURCES = $(isocks_SOURCES) $(osocks_SOURCES)
+SOURCES = $(iodns_SOURCES) $(isocks_SOURCES) $(osocks_SOURCES)
+DIST_SOURCES = $(iodns_SOURCES) $(isocks_SOURCES) $(osocks_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -259,6 +263,20 @@ isocks_SOURCES = conf.c \
                  mem.h \
                  rc4.h
 
+iodns_SOURCES = conf.c \
+                encrypt.c \
+                iodns.c \
+                log.c \
+                md5.c \
+                mem.c \
+                rc4.c \
+                conf.h \
+                encrypt.h \
+                log.h \
+                md5.h \
+                mem.h \
+                rc4.h
+
 osocks_SOURCES = conf.c \
                  encrypt.c \
                  osocks.c \
@@ -350,6 +368,10 @@ uninstall-binPROGRAMS:
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
 
+iodns$(EXEEXT): $(iodns_OBJECTS) $(iodns_DEPENDENCIES) $(EXTRA_iodns_DEPENDENCIES) 
+	@rm -f iodns$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(iodns_OBJECTS) $(iodns_LDADD) $(LIBS)
+
 isocks$(EXEEXT): $(isocks_OBJECTS) $(isocks_DEPENDENCIES) $(EXTRA_isocks_DEPENDENCIES) 
 	@rm -f isocks$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(isocks_OBJECTS) $(isocks_LDADD) $(LIBS)
@@ -366,6 +388,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/conf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/encrypt.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iodns.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/isocks.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/md5.Po@am__quote@

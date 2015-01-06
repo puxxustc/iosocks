@@ -43,7 +43,8 @@ int read_conf(const char *file, conf_t *conf)
 	{
 		null = 0,
 		servers,
-		local
+		local,
+		dns
 	} section = null;
 
 	while (!feof(f))
@@ -82,6 +83,10 @@ int read_conf(const char *file, conf_t *conf)
 			else if (strcmp(line, "[local]") == 0)
 			{
 				section = local;
+			}
+			else if (strcmp(line, "[dns]") == 0)
+			{
+				section = dns;
 			}
 			else
 			{
@@ -150,6 +155,41 @@ int read_conf(const char *file, conf_t *conf)
 						free(conf->local.port);
 					}
 					conf->local.port = strdup(value);
+				}
+			}
+			else if (section == dns)
+			{
+				if (strcmp(name, "address") == 0)
+				{
+					if (conf->dns.address != NULL)
+					{
+						free(conf->dns.address);
+					}
+					conf->dns.address = strdup(value);
+				}
+				else if (strcmp(name, "port") == 0)
+				{
+					if (conf->dns.port != NULL)
+					{
+						free(conf->dns.port);
+					}
+					conf->dns.port = strdup(value);
+				}
+				else if (strcmp(name, "upstream_addr") == 0)
+				{
+					if (conf->dns.upstream_addr != NULL)
+					{
+						free(conf->dns.upstream_addr);
+					}
+					conf->dns.upstream_addr = strdup(value);
+				}
+				else if (strcmp(name, "upstream_port") == 0)
+				{
+					if (conf->dns.upstream_port != NULL)
+					{
+						free(conf->dns.upstream_port);
+					}
+					conf->dns.upstream_port = strdup(value);
 				}
 			}
 			else

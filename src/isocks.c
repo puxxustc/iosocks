@@ -223,8 +223,8 @@ int main(int argc, char **argv)
 	ev_signal w_sigterm;
 	ev_signal_init(&w_sigint, signal_cb, SIGINT);
 	ev_signal_init(&w_sigterm, signal_cb, SIGTERM);
-	ev_signal_start(loop, &w_sigint);
-	ev_signal_start(loop, &w_sigterm);
+	ev_signal_start(EV_A_ &w_sigint);
+	ev_signal_start(EV_A_ &w_sigterm);
 
 	// 初始化本地监听 socket
 	bzero(&hints, sizeof(struct addrinfo));
@@ -256,11 +256,11 @@ int main(int argc, char **argv)
 	}
 	ev_io w_listen;
 	ev_io_init(&w_listen, accept_cb, sock_listen, EV_READ);
-	ev_io_start(loop, &w_listen);
+	ev_io_start(EV_A_ &w_listen);
 	LOG("starting isocks at %s:%s", conf.local.address, conf.local.port);
 
 	// 执行事件循环
-	ev_run(loop, 0);
+	ev_run(EV_A_ 0);
 
 	// 退出
 	close(sock_listen);

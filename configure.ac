@@ -17,9 +17,11 @@ AC_PROG_INSTALL
 
 # Checks for libraries.
 AC_CHECK_LIB([anl], [getaddrinfo_a])
+AC_CHECK_LIB([resolv], [ns_initparse])
 AC_CHECK_LIB([ev], [ev_default_loop])
 
 # Checks for header files.
+AC_HEADER_RESOLV
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h sys/socket.h sys/time.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.

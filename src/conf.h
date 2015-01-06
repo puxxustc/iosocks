@@ -35,6 +35,13 @@ typedef struct {
 		char *address;
 		char *port;
 	} local;
+	struct
+	{
+		char *address;
+		char *port;
+		char *upstream_addr;
+		char *upstream_port;
+	} dns;
 } conf_t;
 
 extern int read_conf(const char *file, conf_t *conf);

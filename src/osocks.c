@@ -259,7 +259,7 @@ int main(int argc, char **argv)
 	}
 
 	// 执行事件循环
-	ev_run(loop, 0);
+	ev_run(EV_A_ 0);
 
 	// 退出
 	LOG("Exit");
