@@ -110,9 +110,8 @@ conf_t conf;
 // 服务器的信息
 struct
 {
-	char addr[128];
+	struct sockaddr_storage addr;
 	socklen_t addrlen;
-	int family;
 	char *key;
 	size_t key_len;
 } servers[MAX_SERVER];
@@ -204,9 +203,8 @@ int main(int argc, char **argv)
 			LOG("wrong server_host/server_port");
 			return 2;
 		}
-		memcpy(servers[i].addr, res->ai_addr, res->ai_addrlen);
+		memcpy(&servers[i].addr, res->ai_addr, res->ai_addrlen);
 		servers[i].addrlen = res->ai_addrlen;
-		servers[i].family = res->ai_family;
 		freeaddrinfo(res);
 	}
 
@@ -464,7 +462,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
 			conn->tx_bytes = 512;
 			// 建立远程连接
-			conn->sock_remote = socket(servers[index].family, SOCK_STREAM, IPPROTO_TCP);
+			conn->sock_remote = socket(servers[index].addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
 			if (conn->sock_remote < 0)
 			{
 				ERR("socket");
@@ -479,7 +477,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			conn->w_remote_write.data = (void *)conn;
 			ev_io_start(EV_A_ &conn->w_remote_write);
 			conn->state = CMD_RCVD;
-			connect(conn->sock_remote, (struct sockaddr *)servers[index].addr, servers[index].addrlen);
+			connect(conn->sock_remote, (struct sockaddr *)&servers[index].addr, servers[index].addrlen);
 		}
 		else
 		{

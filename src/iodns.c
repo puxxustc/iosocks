@@ -68,7 +68,7 @@ typedef struct
 	int type;
 	struct
 	{
-		char addr[128];
+		struct sockaddr_storage addr;
 		socklen_t addrlen;
 	} udp;
 	enc_evp_t enc_evp;
@@ -99,9 +99,8 @@ conf_t conf;
 // 服务器的信息
 struct
 {
-	char addr[128];
+	struct sockaddr_storage addr;
 	socklen_t addrlen;
-	int family;
 	char *key;
 	size_t key_len;
 } servers[MAX_SERVER];
@@ -201,9 +200,8 @@ int main(int argc, char **argv)
 			LOG("wrong server_host/server_port");
 			return 2;
 		}
-		memcpy(servers[i].addr, res->ai_addr, res->ai_addrlen);
+		memcpy(&servers[i].addr, res->ai_addr, res->ai_addrlen);
 		servers[i].addrlen = res->ai_addrlen;
-		servers[i].family = res->ai_family;
 		freeaddrinfo(res);
 	}
 
@@ -355,7 +353,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		conn->udp.addrlen = 128;
 		conn->tx_bytes = recvfrom(conn->sock_local, conn->tx_buf + 512 + 2,
 		                          BUF_SIZE, 0,
-		                          (struct sockaddr *)conn->udp.addr,
+		                          (struct sockaddr *)&conn->udp.addr,
 		                          &conn->udp.addrlen);
 		*((uint16_t *)(conn->tx_buf + 512)) = htons((uint16_t)conn->tx_bytes);
 		conn->tx_bytes += 2;
@@ -421,7 +419,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	io_encrypt(conn->tx_buf + 512, conn->tx_bytes, &conn->enc_evp);
 	conn->tx_bytes += 512;
 	// 建立远程连接
-	conn->sock_remote = socket(servers[index].family, SOCK_STREAM, IPPROTO_TCP);
+	conn->sock_remote = socket(servers[index].addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
 	if (conn->sock_remote < 0)
 	{
 		ERR("socket");
@@ -435,7 +433,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
 	conn->w_remote_write.data = (void *)conn;
 	ev_io_start(EV_A_ &conn->w_remote_write);
-	connect(conn->sock_remote, (struct sockaddr *)servers[index].addr, servers[index].addrlen);
+	connect(conn->sock_remote, (struct sockaddr *)&servers[index].addr, servers[index].addrlen);
 }
 
 static void connect_cb(EV_P_ ev_io *w, int revents)
@@ -529,7 +527,7 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 	{
 		ssize_t n = sendto(conn->sock_local, conn->rx_buf + 2,
 		                   conn->rx_bytes - 2, 0,
-		                   (struct sockaddr *)conn->udp.addr,
+		                   (struct sockaddr *)&conn->udp.addr,
 		                   (socklen_t)conn->udp.addrlen);
 		if (n < 0)
 		{
