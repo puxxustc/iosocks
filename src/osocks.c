@@ -417,7 +417,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		char *host = (char *)conn->tx_buf + 4;
 		char *port = (char *)conn->tx_buf + 261;
 		host[256] = '\0';
-		port[15] = '\0';
+		port[14] = '\0';
 		LOG("connect %s:%s", host, port);
 		conn->gai = (gai_t *)mem_new(sizeof(gai_t));
 		if (conn->gai == NULL)
@@ -563,6 +563,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 		{
 			conn->tx_offset = 512;
 			conn->tx_bytes -= 512;
+			io_decrypt(conn->tx_buf + conn->tx_offset, conn->tx_bytes, &conn->enc_evp);
 			ev_io_start(EV_A_ &conn->w_remote_write);
 		}
 		else
