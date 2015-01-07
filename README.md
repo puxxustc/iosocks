@@ -50,6 +50,14 @@ usage: iodns
   -c <config_file>  config file, see iosocks(8) for its syntax
 ```
 
+**ioredir**
+
+```bash
+usage: ioredir
+  -h, --help        show this help
+  -c <config_file>  config file, see iosocks(8) for its syntax
+```
+
 **sample config file**
 
 ```ini
@@ -69,6 +77,9 @@ address=127.0.0.1
 port=5300
 upstream_addr=8.8.8.8
 upstream_port=53
+[redir]
+address=127.0.0.1
+port=1081
 ```
 
 
