@@ -20,6 +20,7 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
+#include <ev.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -32,12 +33,12 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <ev.h>
 #include "conf.h"
 #include "encrypt.h"
 #include "log.h"
 #include "md5.h"
 #include "mem.h"
+#include "utils.h"
 
 // 缓冲区大小
 #define BUF_SIZE 8192
@@ -102,11 +103,6 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents);
 static void resolv_cb(int signo, siginfo_t *info, void *context);
 static void connect_cb(EV_P_ ev_io *w, int revents);
 static void cleanup(EV_P_ conn_t *conn);
-static int setnonblock(int sock);
-static int settimeout(int sock);
-static int setreuseaddr(int sock);
-static int setkeepalive(int sock);
-static int geterror(int sock);
 
 // 服务器的信息
 typedef struct
@@ -671,65 +667,4 @@ static void cleanup(EV_P_ conn_t *conn)
 	close(conn->sock_local);
 	close(conn->sock_remote);
 	mem_delete(conn);
-}
-
-static int setnonblock(int sock)
-{
-	int flags;
-	flags = fcntl(sock, F_GETFL, 0);
-	if (flags == -1)
-	{
-		return -1;
-	}
-	if (-1 == fcntl(sock, F_SETFL, flags | O_NONBLOCK))
-	{
-		return -1;
-	}
-	return 0;
-}
-
-static int settimeout(int sock)
-{
-	struct timeval timeout = { .tv_sec = 10, .tv_usec = 0};
-	if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval)) != 0)
-	{
-		return -1;
-	}
-	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) != 0)
-	{
-		return -1;
-	}
-	return 0;
-}
-
-static int setreuseaddr(int sock)
-{
-	int reuseaddr = 1;
-	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int)) != 0)
-	{
-		return -1;
-	}
-	return 0;
-}
-
-static int setkeepalive(int sock)
-{
-	int keepalive = 1;
-	if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(int)) != 0)
-	{
-		return -1;
-	}
-	return 0;
-}
-
-
-static int geterror(int sock)
-{
-	int error = 0;
-	socklen_t len = sizeof(int);
-	if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len) != 0)
-	{
-		return -1;
-	}
-	return error;
 }

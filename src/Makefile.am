@@ -9,12 +9,14 @@ isocks_SOURCES = conf.c \
                  md5.c \
                  mem.c \
                  rc4.c \
+                 utils.c \
                  conf.h \
                  encrypt.h \
                  log.h \
                  md5.h \
                  mem.h \
-                 rc4.h
+                 rc4.h \
+                 utils.h
 
 iodns_SOURCES = conf.c \
                 encrypt.c \
@@ -23,12 +25,14 @@ iodns_SOURCES = conf.c \
                 md5.c \
                 mem.c \
                 rc4.c \
+                utils.c \
                 conf.h \
                 encrypt.h \
                 log.h \
                 md5.h \
                 mem.h \
-                rc4.h
+                rc4.h \
+                utils.h
 
 ioredir_SOURCES = conf.c \
                   encrypt.c \
@@ -37,23 +41,27 @@ ioredir_SOURCES = conf.c \
                   md5.c \
                   mem.c \
                   rc4.c \
+                  utils.c \
                   conf.h \
                   encrypt.h \
                   log.h \
                   md5.h \
                   mem.h \
-                  rc4.h
+                  rc4.h \
+                  utils.h
 
 osocks_SOURCES = conf.c \
                  encrypt.c \
-                 osocks.c \
                  log.c \
                  md5.c \
                  mem.c \
+                 osocks.c \
                  rc4.c \
+                 utils.c \
                  conf.h \
                  encrypt.h \
                  log.h \
                  md5.h \
                  mem.h \
-                 rc4.h
+                 rc4.h \
+                 utils.h

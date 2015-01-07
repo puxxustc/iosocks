@@ -20,10 +20,8 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
+#include <ev.h>
 #include <fcntl.h>
-#include <linux/if.h>
-#include <linux/netfilter_ipv4.h>
-#include <linux/netfilter_ipv6/ip6_tables.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <resolv.h>
@@ -35,12 +33,12 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <ev.h>
 #include "conf.h"
 #include "encrypt.h"
 #include "log.h"
 #include "md5.h"
 #include "mem.h"
+#include "utils.h"
 
 // 缓冲区大小
 #define BUF_SIZE 8192
@@ -91,13 +89,6 @@ static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
 static void remote_write_cb(EV_P_ ev_io *w, int revents);
 static void cleanup(EV_P_ conn_t *conn);
-static void rand_bytes(void *stream, size_t len);
-static int setnonblock(int fd);
-static int settimeout(int fd);
-static int setreuseaddr(int fd);
-static int setkeepalive(int fd);
-static int getdestaddr(int fd, struct sockaddr *addr, socklen_t *addrlen);
-static int geterror(int fd);
 
 // 配置信息
 conf_t conf;
@@ -580,87 +571,4 @@ static void cleanup(EV_P_ conn_t *conn)
 	close(conn->sock_local);
 	close(conn->sock_remote);
 	mem_delete(conn);
-}
-
-static int setnonblock(int fd)
-{
-	int flags;
-	flags = fcntl(fd, F_GETFL, 0);
-	if (flags == -1)
-	{
-		return -1;
-	}
-	if (-1 == fcntl(fd, F_SETFL, flags | O_NONBLOCK))
-	{
-		return -1;
-	}
-	return 0;
-}
-
-static int settimeout(int fd)
-{
-	struct timeval timeout = { .tv_sec = 10, .tv_usec = 0};
-	if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval)) != 0)
-	{
-		return -1;
-	}
-	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) != 0)
-	{
-		return -1;
-	}
-	return 0;
-}
-
-static int setreuseaddr(int fd)
-{
-	int reuseaddr = 1;
-	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int)) != 0)
-	{
-		return -1;
-	}
-	return 0;
-}
-
-static int setkeepalive(int fd)
-{
-	int keepalive = 1;
-	if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(int)) != 0)
-	{
-		return -1;
-	}
-	return 0;
-}
-
-static int geterror(int fd)
-{
-	int error = 0;
-	socklen_t len = sizeof(int);
-	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len) != 0)
-	{
-		return -1;
-	}
-	return error;
-}
-
-static int getdestaddr(int fd, struct sockaddr *addr, socklen_t *addrlen)
-{
-	if (getsockopt(fd, SOL_IPV6, IP6T_SO_ORIGINAL_DST, addr, addrlen) == 0)
-	{
-		return 0;
-	}
-	if (getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, addr, addrlen) == 0)
-	{
-		return 0;
-	}
-    return -1;
-}
-
-static void rand_bytes(void *stream, size_t len)
-{
-	static int urand = -1;
-	if (urand == -1)
-	{
-		urand = open("/dev/urandom", O_RDONLY, 0);
-	}
-	read(urand, stream, len);
 }
