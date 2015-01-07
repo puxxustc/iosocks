@@ -44,7 +44,8 @@ int read_conf(const char *file, conf_t *conf)
 		null = 0,
 		servers,
 		local,
-		dns
+		dns,
+		redir
 	} section = null;
 
 	while (!feof(f))
@@ -87,6 +88,10 @@ int read_conf(const char *file, conf_t *conf)
 			else if (strcmp(line, "[dns]") == 0)
 			{
 				section = dns;
+			}
+			else if (strcmp(line, "[redir]") == 0)
+			{
+				section = redir;
 			}
 			else
 			{
@@ -191,6 +196,26 @@ int read_conf(const char *file, conf_t *conf)
 					}
 					conf->dns.upstream_port = strdup(value);
 				}
+			}
+			else if (section == redir)
+			{
+				if (strcmp(name, "address") == 0)
+				{
+					if (conf->redir.address != NULL)
+					{
+						free(conf->redir.address);
+					}
+					conf->redir.address = strdup(value);
+				}
+				else if (strcmp(name, "port") == 0)
+				{
+					if (conf->redir.port != NULL)
+					{
+						free(conf->redir.port);
+					}
+					conf->redir.port = strdup(value);
+				}
+
 			}
 			else
 			{

@@ -626,7 +626,7 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 		{
 			conn->state = ESTAB;
 			ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
-			conn->w_remote_read.data = conn;
+			conn->w_remote_read.data = (void *)conn;
 			ev_io_start(EV_A_ &conn->w_local_read);
 			ev_io_start(EV_A_ &conn->w_remote_read);
 		}
@@ -818,7 +818,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	{
 		conn->state = CONNECTED;
 		ev_io_init(&conn->w_remote_write, remote_write_cb, conn->sock_remote, EV_WRITE);
-		conn->w_remote_write.data = conn;
+		conn->w_remote_write.data = (void *)conn;
 		ev_io_start(EV_A_ &conn->w_remote_write);
 	}
 	else

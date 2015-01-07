@@ -1,5 +1,5 @@
 /*
- * iodns.c - A dns server that forward all requests to osocks
+ * ioredir.c - A transparent TCP proxy through remote osocks servers
  *
  * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -21,6 +21,9 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/if.h>
+#include <linux/netfilter_ipv4.h>
+#include <linux/netfilter_ipv6/ip6_tables.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <resolv.h>
@@ -52,6 +55,13 @@
 #define EWOULDBLOCK EAGAIN
 #endif
 
+// 连接状态
+typedef enum
+{
+	CLOSED = 0,
+	ESTAB
+} state_t;
+
 // 连接控制块结构
 typedef struct
 {
@@ -65,12 +75,7 @@ typedef struct
 	ssize_t tx_offset;
 	int sock_local;
 	int sock_remote;
-	int type;
-	struct
-	{
-		struct sockaddr_storage addr;
-		socklen_t addrlen;
-	} udp;
+	state_t state;
 	enc_evp_t enc_evp;
 	uint8_t rx_buf[BUF_SIZE];
 	uint8_t tx_buf[BUF_SIZE];
@@ -85,13 +90,14 @@ static void local_read_cb(EV_P_ ev_io *w, int revents);
 static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
 static void remote_write_cb(EV_P_ ev_io *w, int revents);
-static void closewait_cb(EV_P_ ev_timer *w, int revents);
+static void cleanup(EV_P_ conn_t *conn);
 static void rand_bytes(void *stream, size_t len);
-static int setnonblock(int sock);
-static int settimeout(int sock);
-static int setreuseaddr(int sock);
-static int setkeepalive(int sock);
-static int geterror(int sock);
+static int setnonblock(int fd);
+static int settimeout(int fd);
+static int setreuseaddr(int fd);
+static int setkeepalive(int fd);
+static int getdestaddr(int fd, struct sockaddr *addr, socklen_t *addrlen);
+static int geterror(int fd);
 
 // 配置信息
 conf_t conf;
@@ -163,21 +169,13 @@ int main(int argc, char **argv)
 			return 1;
 		}
 	}
-	if (conf.dns.address == NULL)
+	if (conf.redir.address == NULL)
 	{
-		conf.dns.address = "127.0.0.1";
+		conf.redir.address = "127.0.0.1";
 	}
-	if (conf.dns.port == NULL)
+	if (conf.redir.port == NULL)
 	{
-		conf.dns.port = "5300";
-	}
-	if (conf.dns.upstream_addr == NULL)
-	{
-		conf.dns.upstream_addr = "8.8.8.8";
-	}
-	if (conf.dns.upstream_port == NULL)
-	{
-		conf.dns.upstream_port = "53";
+		conf.redir.port = "1081";
 	}
 
 	// 服务器信息
@@ -206,9 +204,9 @@ int main(int argc, char **argv)
 	}
 
 	// 初始化内存池
-	size_t block_size[2] = { sizeof(ev_timer), sizeof(conn_t) };
-	size_t block_count[2] = { 8, 32 };
-	if (mem_init(block_size, block_count, 2) != 0)
+	size_t block_size[1] = { sizeof(conn_t) };
+	size_t block_count[1] = { 64 };
+	if (mem_init(block_size, block_count, 1) != 0)
 	{
 		LOG("memory pool error");
 		return 3;
@@ -223,74 +221,46 @@ int main(int argc, char **argv)
 	ev_signal_start(EV_A_ &w_sigint);
 	ev_signal_start(EV_A_ &w_sigterm);
 
-	// 初始化本地监听 TCP socket
+	// 初始化本地监听 socket
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	if (getaddrinfo(conf.dns.address, conf.dns.port, &hints, &res) != 0)
+	if (getaddrinfo(conf.redir.address, conf.redir.port, &hints, &res) != 0)
 	{
 		LOG("wrong local_host/local_port");
 		return 4;
 	}
-	int sock_tcp = socket(res->ai_family, SOCK_STREAM, IPPROTO_TCP);
-	if (sock_tcp < 0)
+	int sock_listen = socket(res->ai_family, SOCK_STREAM, IPPROTO_TCP);
+	if (sock_listen < 0)
 	{
 		ERR("socket");
 		return 4;
 	}
-	setnonblock(sock_tcp);
-	setreuseaddr(sock_tcp);
-	if (bind(sock_tcp, (struct sockaddr *)res->ai_addr, res->ai_addrlen) != 0)
+	setnonblock(sock_listen);
+	setreuseaddr(sock_listen);
+	if (bind(sock_listen, (struct sockaddr *)res->ai_addr, res->ai_addrlen) != 0)
 	{
 		ERR("bind");
 		return 4;
 	}
 	freeaddrinfo(res);
-	if (listen(sock_tcp, 1024) != 0)
+	if (listen(sock_listen, 1024) != 0)
 	{
 		ERR("listen");
 		return 4;
 	}
 
-	// 初始化本地监听 UDP socket
-	bzero(&hints, sizeof(struct addrinfo));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_DGRAM;
-	if (getaddrinfo(conf.dns.address, conf.dns.port, &hints, &res) != 0)
-	{
-		LOG("wrong local_host/local_port");
-		return 4;
-	}
-	int sock_udp = socket(res->ai_family, SOCK_DGRAM, IPPROTO_UDP);
-	if (sock_udp < 0)
-	{
-		ERR("socket");
-		return 4;
-	}
-	setnonblock(sock_udp);
-	setreuseaddr(sock_udp);
-	if (bind(sock_udp, (struct sockaddr *)res->ai_addr, res->ai_addrlen) != 0)
-	{
-		ERR("bind");
-		return 4;
-	}
-	freeaddrinfo(res);
-
 	// 初始化 ev watcher
-	ev_io w_tcp;
-	ev_io_init(&w_tcp, accept_cb, sock_tcp, EV_READ);
-	ev_io_start(EV_A_ &w_tcp);
-	ev_io w_udp;
-	ev_io_init(&w_udp, local_read_cb, sock_udp, EV_READ);
-	w_udp.data = NULL;
-	ev_io_start(EV_A_ &w_udp);
-	LOG("starting iodns at %s:%s", conf.dns.address, conf.dns.port);
+	ev_io w_listen;
+	ev_io_init(&w_listen, accept_cb, sock_listen, EV_READ);
+	ev_io_start(EV_A_ &w_listen);
+	LOG("starting ioredir at %s:%s", conf.redir.address, conf.redir.port);
 
 	// 执行事件循环
 	ev_run(EV_A_ 0);
 
 	// 退出
-	close(sock_tcp);
+	close(sock_listen);
 	LOG("Exit");
 
 	return 0;
@@ -318,7 +288,6 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 		LOG("out of memory");
 		return;
 	}
-	conn->type = SOCK_STREAM;
 	conn->sock_local = accept(w->fd, NULL, NULL);
 	if (conn->sock_local < 0)
 	{
@@ -329,72 +298,35 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	setnonblock(conn->sock_local);
 	settimeout(conn->sock_local);
 	setkeepalive(conn->sock_local);
-	ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
-	conn->w_local_read.data = (void *)conn;
-	ev_io_start(EV_A_ &conn->w_local_read);
-}
+	conn->state = CLOSED;
 
-static void local_read_cb(EV_P_ ev_io *w, int revents)
-{
-	conn_t *conn;
-
-	if (w->data == NULL)
+	// 获取原始地址
+	struct sockaddr_storage addr;
+	socklen_t addrlen = sizeof(struct sockaddr_storage);
+	char host[257], port[15];
+	if (getdestaddr(conn->sock_local, (struct sockaddr *)&addr, &addrlen) != 0)
 	{
-		// UDP
-		conn = (conn_t *)mem_new(sizeof(conn_t));
-		if (conn == NULL)
-		{
-			LOG("out of memory");
-			return;
-		}
-		conn->type = SOCK_DGRAM;
-		conn->sock_local = w->fd;
-		conn->w_local_read.data = (void *)conn;
-		conn->udp.addrlen = 128;
-		conn->tx_bytes = recvfrom(conn->sock_local, conn->tx_buf + 512 + 2,
-		                          BUF_SIZE, 0,
-		                          (struct sockaddr *)&conn->udp.addr,
-		                          &conn->udp.addrlen);
-		*((uint16_t *)(conn->tx_buf + 512)) = htons((uint16_t)conn->tx_bytes);
-		conn->tx_bytes += 2;
+		ERR("getdestaddr");
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
+	}
+	if (addr.ss_family == AF_INET)
+	{
+		inet_ntop(AF_INET, &(((struct sockaddr_in *)&addr)->sin_addr), host, INET_ADDRSTRLEN);
+		sprintf(port, "%u", ntohs(((struct sockaddr_in *)&addr)->sin_port));
 	}
 	else
 	{
-		conn = (conn_t *)(w->data);
-		ev_io_stop(EV_A_ w);
-		conn->tx_bytes = recv(conn->sock_local, conn->tx_buf + 512, BUF_SIZE, 0);
-		if (conn->tx_bytes <= 0)
-		{
-			if (conn->tx_bytes < 0)
-			{
-				LOG("client reset");
-			}
-			close(conn->sock_local);
-			mem_delete(conn);
-			return;
-		}
+		inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&addr)->sin6_addr), host, INET6_ADDRSTRLEN);
+		sprintf(port, "%u", ntohs(((struct sockaddr_in6 *)&addr)->sin6_port));
 	}
 
 	// 随机选择一个 server
 	unsigned int index;
 	rand_bytes(&index, sizeof(unsigned int));
 	index %= (unsigned int)conf.server_num;
-
-	// 提取出 query domain
-	ns_msg msg;
-	ns_rr rr;
-	int len = (int)ntohs(*((uint16_t *)(conn->tx_buf + 512)));
-	if (ns_initparse((const u_char *)conn->tx_buf + 512 + 2, len, &msg) < 0)
-	{
-		LOG("ns_initparse error");
-		close(conn->sock_local);
-		mem_delete(conn);
-		return;
-	}
-	ns_parserr(&msg, ns_s_qd, 0, &rr);
-	LOG("query %s to %s:%s via %s:%s", ns_rr_name(rr),
-	    conf.dns.upstream_addr, conf.dns.upstream_port,
-	    conf.server[index].address, conf.server[index].port);
+	LOG("connect %s:%s via %s:%s", host, port, conf.server[index].address, conf.server[index].port);
 
 	// iosocks 请求
 	// +-------+------+------+------+
@@ -413,11 +345,10 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	memcpy(conn->tx_buf + 276, conn->rx_buf, 236);
 	bzero(conn->tx_buf, 276);
 	*((uint32_t *)(conn->tx_buf)) = htonl(MAGIC);
-	strcpy((char *)conn->tx_buf + 4, conf.dns.upstream_addr);
-	strcpy((char *)conn->tx_buf + 261, conf.dns.upstream_port);
+	strcpy((char *)conn->tx_buf + 4, host);
+	strcpy((char *)conn->tx_buf + 261, port);
 	io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
-	io_encrypt(conn->tx_buf + 512, conn->tx_bytes, &conn->enc_evp);
-	conn->tx_bytes += 512;
+	conn->tx_bytes = 512;
 	// 建立远程连接
 	conn->sock_remote = socket(servers[index].addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
 	if (conn->sock_remote < 0)
@@ -450,7 +381,6 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 		ev_io_init(&conn->w_remote_write, remote_write_cb, conn->sock_remote, EV_WRITE);
 		conn->w_remote_write.data = (void *)conn;
 		ev_io_start(EV_A_ &conn->w_remote_write);
-		conn->tx_offset = 0;
 	}
 	else
 	{
@@ -462,122 +392,50 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	}
 }
 
-static void remote_write_cb(EV_P_ ev_io *w, int revents)
+static void local_read_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
-	assert(conn->tx_bytes > 0);
 
-	ssize_t n = send(conn->sock_remote, conn->tx_buf + conn->tx_offset, conn->tx_bytes, MSG_NOSIGNAL);
+	conn->tx_bytes = recv(conn->sock_local, conn->tx_buf, BUF_SIZE, 0);
+	if (conn->tx_bytes <= 0)
+	{
+		if (conn->tx_bytes < 0)
+		{
+			LOG("client reset");
+		}
+		cleanup(EV_A_ conn);
+		return;
+	}
+	io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
+	ssize_t n = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
 	if (n < 0)
 	{
 		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
 		{
-			return;
+			conn->tx_offset = 0;
 		}
 		else
 		{
 			ERR("send");
-			ev_io_stop(EV_A_ w);
-			close(conn->sock_local);
-			close(conn->sock_remote);
-			mem_delete(conn);
+			cleanup(EV_A_ conn);
 			return;
 		}
 	}
 	else if (n < conn->tx_bytes)
 	{
-		conn->tx_offset += n;
+		conn->tx_offset = n;
 		conn->tx_bytes -= n;
 	}
 	else
 	{
-		ev_io_stop(EV_A_ w);
-		ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
-		conn->w_remote_read.data = (void *)conn;
-		ev_io_start(EV_A_ &conn->w_remote_read);
-	}
-}
-
-static void remote_read_cb(EV_P_ ev_io *w, int revents)
-{
-	conn_t *conn = (conn_t *)(w->data);
-
-	assert(conn != NULL);
-
-	ev_io_stop(EV_A_ w);
-
-	conn->rx_bytes = recv(conn->sock_remote, conn->rx_buf, BUF_SIZE, 0);
-	if (conn->rx_bytes <= 0)
-	{
-		if (conn->rx_bytes < 0)
-		{
-			LOG("dns server reset");
-		}
-		close(conn->sock_local);
-		close(conn->sock_remote);
-		mem_delete(conn);
 		return;
 	}
-	close(conn->sock_remote);
-
-	io_decrypt(conn->rx_buf, conn->rx_bytes, &conn->enc_evp);
-	if (conn->type == SOCK_DGRAM)
-	{
-		ssize_t n = sendto(conn->sock_local, conn->rx_buf + 2,
-		                   conn->rx_bytes - 2, 0,
-		                   (struct sockaddr *)&conn->udp.addr,
-		                   (socklen_t)conn->udp.addrlen);
-		if (n < 0)
-		{
-			ERR("sendto");
-			mem_delete(conn);
-		}
-	}
-	else
-	{
-		ssize_t n = send(conn->sock_local, conn->rx_buf, conn->rx_bytes, MSG_NOSIGNAL);
-		if (n < 0)
-		{
-			if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-			{
-				conn->rx_offset = 0;
-			}
-			else
-			{
-				ERR("send");
-				close(conn->sock_local);
-				mem_delete(conn);
-				return;
-			}
-		}
-		else if (n < conn->rx_bytes)
-		{
-			conn->rx_offset = n;
-			conn->rx_bytes -= n;
-		}
-		else
-		{
-			ev_timer *w_timer = (ev_timer *)mem_new(sizeof(ev_timer));
-			if (w_timer == NULL)
-			{
-				LOG("out of memory");
-				close(conn->sock_local);
-				close(conn->sock_remote);
-				mem_delete(conn);
-				return;
-			}
-			close(conn->sock_remote);
-			ev_timer_init(w_timer, closewait_cb, 1.0, 0);
-			w_timer->data = (void *)conn;
-			ev_timer_start(EV_A_ w_timer);
-			return;
-		}
-		ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
-		ev_io_start(EV_A_ &conn->w_local_write);
-	}
+	ev_io_start(EV_A_ &conn->w_remote_write);
+	ev_io_stop(EV_A_ w);
 }
+
 
 static void local_write_cb(EV_P_ ev_io *w, int revents)
 {
@@ -596,9 +454,7 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 		else
 		{
 			ERR("send");
-			close(conn->sock_local);
-			close(conn->sock_remote);
-			mem_delete(conn);
+			cleanup(EV_A_ conn);
 			return;
 		}
 	}
@@ -609,92 +465,194 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 	}
 	else
 	{
-		ev_timer *w_timer = (ev_timer *)mem_new(sizeof(ev_timer));
-		if (w_timer == NULL)
-		{
-			LOG("out of memory");
-			close(conn->sock_local);
-			close(conn->sock_remote);
-			mem_delete(conn);
-			return;
-		}
-		close(conn->sock_remote);
-		ev_timer_init(w_timer, closewait_cb, 1.0, 0);
-		w_timer->data = (void *)conn;
-		ev_timer_start(EV_A_ w_timer);
+		ev_io_start(EV_A_ &conn->w_remote_read);
+		ev_io_stop(EV_A_ w);
 	}
 }
 
-static void closewait_cb(EV_P_ ev_timer *w, int revents)
+static void remote_read_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
 
-	ev_timer_stop(EV_A_ w);
+	conn->rx_bytes = recv(conn->sock_remote, conn->rx_buf, BUF_SIZE, 0);
+	if (conn->rx_bytes <= 0)
+	{
+		if (conn->rx_bytes < 0)
+		{
+			LOG("server reset");
+		}
+		cleanup(EV_A_ conn);
+		return;
+	}
+	io_decrypt(conn->rx_buf, conn->rx_bytes, &conn->enc_evp);
+	ssize_t n = send(conn->sock_local, conn->rx_buf, conn->rx_bytes, MSG_NOSIGNAL);
+	if (n < 0)
+	{
+		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+		{
+			conn->rx_offset = 0;
+		}
+		else
+		{
+			ERR("send");
+			cleanup(EV_A_ conn);
+			return;
+		}
+	}
+	else if (n < conn->rx_bytes)
+	{
+		conn->rx_offset = n;
+		conn->rx_bytes -= n;
+	}
+	else
+	{
+		return;
+	}
+	ev_io_start(EV_A_ &conn->w_local_write);
+	ev_io_stop(EV_A_ w);
+}
+
+static void remote_write_cb(EV_P_ ev_io *w, int revents)
+{
+	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn != NULL);
+
+	if (conn->state == CLOSED)
+	{
+		ssize_t tx_bytes = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
+		if (tx_bytes != conn->tx_bytes)
+		{
+			cleanup(EV_A_ conn);
+			return;
+		}
+		else
+		{
+			conn->state = ESTAB;
+			ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
+			ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
+			ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
+			conn->w_local_read.data = (void *)conn;
+			conn->w_local_write.data = (void *)conn;
+			conn->w_remote_read.data = (void *)conn;
+			ev_io_start(EV_A_ &conn->w_local_read);
+			ev_io_start(EV_A_ &conn->w_remote_read);
+		}
+	}
+	else
+	{
+		assert(conn->tx_bytes > 0);
+		ssize_t n = send(conn->sock_remote, conn->tx_buf + conn->tx_offset, conn->tx_bytes, MSG_NOSIGNAL);
+		if (n < 0)
+		{
+			if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+			{
+				return;
+			}
+			else
+			{
+				ERR("send");
+				cleanup(EV_A_ conn);
+				return;
+			}
+		}
+		else if (n < conn->tx_bytes)
+		{
+			conn->tx_offset += n;
+			conn->tx_bytes -= n;
+		}
+		else
+		{
+			ev_io_start(EV_A_ &conn->w_local_read);
+			ev_io_stop(EV_A_ w);
+		}
+	}
+}
+
+static void cleanup(EV_P_ conn_t *conn)
+{
+	ev_io_stop(EV_A_ &conn->w_local_read);
+	ev_io_stop(EV_A_ &conn->w_local_write);
+	ev_io_stop(EV_A_ &conn->w_remote_read);
+	ev_io_stop(EV_A_ &conn->w_remote_write);
 	close(conn->sock_local);
-	mem_delete(w);
+	close(conn->sock_remote);
 	mem_delete(conn);
 }
 
-static int setnonblock(int sock)
+static int setnonblock(int fd)
 {
 	int flags;
-	flags = fcntl(sock, F_GETFL, 0);
+	flags = fcntl(fd, F_GETFL, 0);
 	if (flags == -1)
 	{
 		return -1;
 	}
-	if (-1 == fcntl(sock, F_SETFL, flags | O_NONBLOCK))
+	if (-1 == fcntl(fd, F_SETFL, flags | O_NONBLOCK))
 	{
 		return -1;
 	}
 	return 0;
 }
 
-static int settimeout(int sock)
+static int settimeout(int fd)
 {
 	struct timeval timeout = { .tv_sec = 10, .tv_usec = 0};
-	if (setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval)) != 0)
+	if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval)) != 0)
 	{
 		return -1;
 	}
-	if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) != 0)
+	if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) != 0)
 	{
 		return -1;
 	}
 	return 0;
 }
 
-static int setreuseaddr(int sock)
+static int setreuseaddr(int fd)
 {
 	int reuseaddr = 1;
-	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int)) != 0)
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(int)) != 0)
 	{
 		return -1;
 	}
 	return 0;
 }
 
-static int setkeepalive(int sock)
+static int setkeepalive(int fd)
 {
 	int keepalive = 1;
-	if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(int)) != 0)
+	if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(int)) != 0)
 	{
 		return -1;
 	}
 	return 0;
 }
 
-static int geterror(int sock)
+static int geterror(int fd)
 {
 	int error = 0;
 	socklen_t len = sizeof(int);
-	if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len) != 0)
+	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len) != 0)
 	{
 		return -1;
 	}
 	return error;
+}
+
+static int getdestaddr(int fd, struct sockaddr *addr, socklen_t *addrlen)
+{
+	if (getsockopt(fd, SOL_IPV6, IP6T_SO_ORIGINAL_DST, addr, addrlen) == 0)
+	{
+		return 0;
+	}
+	if (getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, addr, addrlen) == 0)
+	{
+		return 0;
+	}
+    return -1;
 }
 
 static void rand_bytes(void *stream, size_t len)
