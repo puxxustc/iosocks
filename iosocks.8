@@ -1,21 +1,16 @@
-.TH IOSOCKS 8 "Jan 6, 2015"
+.TH IOSOCKS 8 "Jan 7, 2015"
 .SH NAME
 iosocks \- A lightweight SOCKS5 proxy
 
-.ds Is  \fBisocks\fR
-.ds Os  \fBosocks\fR
-.ds Ns  \fBiodns\fR
-.ds Me  \fBiosocks\fR
-
 .SH SYNOPSIS
-\*(Is|\*(Os|\*(Ns
+\fBisocks\fR|\fBosocks\fR|\fBiodns\fR|\fBioredir\fR
     \-h, \-\-help
     \-c <config_file>
 
 .SH DESCRIPTION
-\*(Me is a lightweight SOCKS5 proxy written in pure C, using \fBlibev\fR as event loop library. It has high performance and low resource consumption.
+\fBiosocks\fR is a lightweight SOCKS5 proxy written in pure C, using \fBlibev\fR as event loop library. It has high performance and low resource consumption.
 .PP
-\*(Me consists of three components. \*(Os runs on a remote server to provide secured tunnel service. \*(Is is a standard SOCKS5 proxy that trasmits all data to \*(Os. \*(Ns is a DNS forwarder that transmits all DNS queries to \*(Os.
+\fBiosocks\fR consists of 4 components. \fBosocks\fR runs on a remote server to provide secured tunnel service. \fBisocks\fR is a standard SOCKS5 proxy that trasmits all data to \fBosocks\fR. \fBiodns\fR is a DNS forwarder that transmits all DNS queries to \fBosocks\fR. \fBioredir\fR is a transparent TCP proxy and requires netfilter's NAT function.
 .PP
 
 .SH OPTIONS
@@ -74,6 +69,16 @@ Upstream DNS server address, default: 8.8.8.8
 .br
 Upstream DNS server port, default: 53
 
+.SS REDIR
+[redir] section define a transparent TCP proxy
+.TP
+.B \fIaddress=\fR
+Local address, default: 127.0.0.1
+.br
+.TP
+.B \fIport=\fR
+.br
+Local port, default: 1081
 
 .SH EXAMPLE
 Here is a sample config file:
@@ -94,6 +99,9 @@ Here is a sample config file:
     port=5300
     upstream_addr=8.8.8.8
     upstream_port=53
+    [redir]
+    address=127.0.0.1
+    port=1081
 
 .SH AUTHOR
 .PP
