@@ -23,6 +23,19 @@ Print a help message and exit.
 
 .SH CONFIG FILE
 The syntax of the config file is inspired by Microsoft Windows \fI.ini\fP files.
+
+.SS GLOBAL
+.TP
+[global] section defines common settings.
+.TP
+\fIuser=\fR
+.br
+Set to specified user after bind
+.TP
+\fIgroup=\fR
+.br
+Set to specified group after bind
+
 .SS SERVER
 .TP
 [server] section defines a remote server. This section can appear more than once.
@@ -83,6 +96,9 @@ Local port, default: 1081
 .SH EXAMPLE
 Here is a sample config file:
 
+    [global]
+    user=nobody
+    group=nobody
     [server]
     address=192.168.1.1
     port=1205
@@ -96,7 +112,7 @@ Here is a sample config file:
     port=1080
     [dns]
     address=127.0.0.1
-    port=5300
+    port=53
     upstream_addr=8.8.8.8
     upstream_port=53
     [redir]

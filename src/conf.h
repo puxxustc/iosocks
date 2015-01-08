@@ -23,6 +23,8 @@
 #define MAX_SERVER 16
 
 typedef struct {
+	char *user;
+	char *group;
 	int server_num;
 	struct
 	{

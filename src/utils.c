@@ -24,6 +24,8 @@
 #include <linux/netfilter_ipv6/ip6_tables.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <pwd.h>
+#include <grp.h>
 #include "utils.h"
 
 int setnonblock(int fd)
@@ -99,7 +101,39 @@ int geterror(int fd)
 	return error;
 }
 
-int rand_bytes(void *stream, size_t len)
+int setuser(const char *user, const char *group)
+{
+	struct passwd *pw_ent;
+	struct group *gr_ent;
+	uid_t uid = 0;
+	gid_t gid = 0;
+
+	pw_ent = getpwnam(user);
+	gr_ent = getgrnam(group);
+
+	if (pw_ent != NULL)
+	{
+		uid = pw_ent->pw_uid;
+		gid = pw_ent->pw_gid;
+	}
+
+	if (gr_ent != NULL)
+	{
+		gid = gr_ent->gr_gid;
+	}
+
+	if (setregid(gid, gid) != 0)
+	{
+		return -1;
+	}
+	if (setreuid(uid, uid) != 0)
+	{
+		return -1;
+	}
+	return 0;
+}
+
+ssize_t rand_bytes(void *stream, size_t len)
 {
 	static int urand = -1;
 	if (urand == -1)

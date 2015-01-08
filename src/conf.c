@@ -42,7 +42,8 @@ int read_conf(const char *file, conf_t *conf)
 	enum
 	{
 		null = 0,
-		servers,
+		global,
+		server,
 		local,
 		dns,
 		redir
@@ -76,10 +77,14 @@ int read_conf(const char *file, conf_t *conf)
 		if (*line == '[')
 		{
 			// 新的 section
-			if (strcmp(line, "[server]") == 0)
+			if (strcmp(line, "[global]") == 0)
+			{
+				section = global;
+			}
+			else if (strcmp(line, "[server]") == 0)
 			{
 				conf->server_num++;
-				section = servers;
+				section = server;
 			}
 			else if (strcmp(line, "[local]") == 0)
 			{
@@ -112,7 +117,26 @@ int read_conf(const char *file, conf_t *conf)
 			*p = '\0';
 			char *name = line;
 			char *value = p + 1;
-			if (section == servers)
+			if (section == global)
+			{
+				if (strcmp(name, "user") == 0)
+				{
+					if (conf->user != NULL)
+					{
+						free(conf->user);
+					}
+					conf->user = strdup(value);
+				}
+				else if (strcmp(name, "group") == 0)
+				{
+					if (conf->group != NULL)
+					{
+						free(conf->group);
+					}
+					conf->group = strdup(value);
+				}
+			}
+			else if (section == server)
 			{
 				if (conf->server_num > MAX_SERVER)
 				{

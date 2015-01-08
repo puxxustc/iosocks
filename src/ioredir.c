@@ -240,12 +240,21 @@ int main(int argc, char **argv)
 		ERR("listen");
 		return 4;
 	}
+	LOG("starting ioredir at %s:%s", conf.redir.address, conf.redir.port);
 
 	// 初始化 ev watcher
 	ev_io w_listen;
 	ev_io_init(&w_listen, accept_cb, sock_listen, EV_READ);
 	ev_io_start(EV_A_ &w_listen);
-	LOG("starting ioredir at %s:%s", conf.redir.address, conf.redir.port);
+
+	// 切换用户
+	if ((conf.user != NULL) || (conf.group != NULL))
+	{
+		if (setuser(conf.user, conf.group) != 0)
+		{
+			LOG("warning: failed to set user/group");
+		}
+	}
 
 	// 执行事件循环
 	ev_run(EV_A_ 0);

@@ -10,6 +10,8 @@ config.status
 *.tar.gz
 isocks
 osocks
+iodns
+ioredir
 
 *.pro
 *.pro.user

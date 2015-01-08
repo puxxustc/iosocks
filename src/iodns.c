@@ -270,6 +270,7 @@ int main(int argc, char **argv)
 		return 4;
 	}
 	freeaddrinfo(res);
+	LOG("starting iodns at %s:%s", conf.dns.address, conf.dns.port);
 
 	// 初始化 ev watcher
 	ev_io w_tcp;
@@ -279,7 +280,15 @@ int main(int argc, char **argv)
 	ev_io_init(&w_udp, local_read_cb, sock_udp, EV_READ);
 	w_udp.data = NULL;
 	ev_io_start(EV_A_ &w_udp);
-	LOG("starting iodns at %s:%s", conf.dns.address, conf.dns.port);
+
+	// 切换用户
+	if ((conf.user != NULL) || (conf.group != NULL))
+	{
+		if (setuser(conf.user, conf.group) != 0)
+		{
+			LOG("warning: failed to set user/group");
+		}
+	}
 
 	// 执行事件循环
 	ev_run(EV_A_ 0);

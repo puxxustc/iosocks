@@ -256,6 +256,15 @@ int main(int argc, char **argv)
 		LOG("starting osocks at %s:%s", conf.server[i].address, conf.server[i].port);
 	}
 
+	// 切换用户
+	if ((conf.user != NULL) || (conf.group != NULL))
+	{
+		if (setuser(conf.user, conf.group) != 0)
+		{
+			LOG("warning: failed to set user/group");
+		}
+	}
+
 	// 执行事件循环
 	ev_run(EV_A_ 0);
 

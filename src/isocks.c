@@ -254,6 +254,15 @@ int main(int argc, char **argv)
 	ev_io_start(EV_A_ &w_listen);
 	LOG("starting isocks at %s:%s", conf.local.address, conf.local.port);
 
+	// 切换用户
+	if ((conf.user != NULL) || (conf.group != NULL))
+	{
+		if (setuser(conf.user, conf.group) != 0)
+		{
+			LOG("warning: failed to set user/group");
+		}
+	}
+
 	// 执行事件循环
 	ev_run(EV_A_ 0);
 
