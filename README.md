@@ -12,14 +12,14 @@ sudo pacman -S libev
 # CentOS
 sudo yum install libev-devel
 # Debian/Ubuntu
-sudo apt-get install libev-devel
+sudo apt-get install libev-dev
 ```
 
 ### make & install ###
 
 ```bash
-cd iosocks
-./configure
+# if automake < 1.14, run `autoreconf -i'
+./configure --prefix=/usr
 make
 sudo make install
 ```
