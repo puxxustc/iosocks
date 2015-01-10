@@ -103,13 +103,19 @@ int geterror(int fd)
 
 int setuser(const char *user, const char *group)
 {
-	struct passwd *pw_ent;
-	struct group *gr_ent;
+	struct passwd *pw_ent = NULL;
+	struct group *gr_ent = NULL;
 	uid_t uid = 0;
 	gid_t gid = 0;
 
-	pw_ent = getpwnam(user);
-	gr_ent = getgrnam(group);
+	if (user != NULL)
+	{
+		pw_ent = getpwnam(user);
+	}
+	if (group != NULL)
+	{
+		gr_ent = getgrnam(group);
+	}
 
 	if (pw_ent != NULL)
 	{
