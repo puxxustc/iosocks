@@ -6,7 +6,10 @@ before_install:
     - sudo apt-get update -qq
 install:
     - sudo apt-get install -y libev-dev
-script: "./configure && make"
+before_script:
+    - "autoreconf -i"
+script:
+    - "./configure && make"
 branches:
     only:
         - master
