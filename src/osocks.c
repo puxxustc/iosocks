@@ -160,14 +160,6 @@ int main(int argc, char **argv)
 	}
 	for (int i = 0; i < conf.server_num; i++)
 	{
-		if (conf.server[i].address == NULL)
-		{
-			conf.server[i].address = "0.0.0.0";
-		}
-		if (conf.server[i].port == NULL)
-		{
-			conf.server[i].port = "1205";
-		}
 		if (conf.server[i].key == NULL)
 		{
 			help();

@@ -30,7 +30,7 @@ The syntax of the config file is inspired by Microsoft Windows \fI.ini\fP files.
 .TP
 \fIuser=\fR
 .br
-Set to specified user after bind
+Set to specified user after bind, default: nobody
 .TP
 \fIgroup=\fR
 .br
@@ -99,22 +99,27 @@ Here is a sample config file:
     [global]
     user=nobody
     group=nobody
+    
     [server]
     address=192.168.1.1
     port=1205
     key=testkey
+    
     [server]
     address=192.168.1.2
     port=1205
     key=testkey2
+    
     [local]
     address=127.0.0.1
     port=1080
+    
     [dns]
     address=127.0.0.1
     port=53
     upstream_addr=8.8.8.8
     upstream_port=53
+    
     [redir]
     address=127.0.0.1
     port=1081

@@ -144,35 +144,11 @@ int main(int argc, char **argv)
 	}
 	for (int i = 0; i < conf.server_num; i++)
 	{
-		if (conf.server[i].address == NULL)
-		{
-			conf.server[i].address = "0.0.0.0";
-		}
-		if (conf.server[i].port == NULL)
-		{
-			conf.server[i].port = "1205";
-		}
 		if (conf.server[i].key == NULL)
 		{
 			help();
 			return 1;
 		}
-	}
-	if (conf.dns.address == NULL)
-	{
-		conf.dns.address = "127.0.0.1";
-	}
-	if (conf.dns.port == NULL)
-	{
-		conf.dns.port = "5300";
-	}
-	if (conf.dns.upstream_addr == NULL)
-	{
-		conf.dns.upstream_addr = "8.8.8.8";
-	}
-	if (conf.dns.upstream_port == NULL)
-	{
-		conf.dns.upstream_port = "53";
 	}
 
 	// 服务器信息

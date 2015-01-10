@@ -19,13 +19,14 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <linux/if.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6/ip6_tables.h>
+#include <pwd.h>
+#include <stddef.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <pwd.h>
-#include <grp.h>
 #include "utils.h"
 
 int setnonblock(int fd)

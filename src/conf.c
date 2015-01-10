@@ -250,5 +250,54 @@ int read_conf(const char *file, conf_t *conf)
 		}
 	}
 	fclose(f);
+
+	if (conf->user == NULL)
+	{
+		conf->user = "nobody";
+	}
+	for (int i = 0; i < conf->server_num; i++)
+	{
+		if (conf->server[i].address == NULL)
+		{
+			conf->server[i].address = "0.0.0.0";
+		}
+		if (conf->server[i].port == NULL)
+		{
+			conf->server[i].port = "1205";
+		}
+	}
+	if (conf->local.address == NULL)
+	{
+		conf->local.address = "127.0.0.1";
+	}
+	if (conf->local.port == NULL)
+	{
+		conf->local.port = "1080";
+	}
+	if (conf->redir.address == NULL)
+	{
+		conf->redir.address = "127.0.0.1";
+	}
+	if (conf->redir.port == NULL)
+	{
+		conf->redir.port = "1081";
+	}
+	if (conf->dns.address == NULL)
+	{
+		conf->dns.address = "127.0.0.1";
+	}
+	if (conf->dns.port == NULL)
+	{
+		conf->dns.port = "53";
+	}
+	if (conf->dns.upstream_addr == NULL)
+	{
+		conf->dns.upstream_addr = "8.8.8.8";
+	}
+	if (conf->dns.upstream_port == NULL)
+	{
+		conf->dns.upstream_port = "53";
+	}
+
 	return 0;
 }

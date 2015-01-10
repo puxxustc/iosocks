@@ -146,27 +146,11 @@ int main(int argc, char **argv)
 	}
 	for (int i = 0; i < conf.server_num; i++)
 	{
-		if (conf.server[i].address == NULL)
-		{
-			conf.server[i].address = "0.0.0.0";
-		}
-		if (conf.server[i].port == NULL)
-		{
-			conf.server[i].port = "1205";
-		}
 		if (conf.server[i].key == NULL)
 		{
 			help();
 			return 1;
 		}
-	}
-	if (conf.redir.address == NULL)
-	{
-		conf.redir.address = "127.0.0.1";
-	}
-	if (conf.redir.port == NULL)
-	{
-		conf.redir.port = "1081";
 	}
 
 	// 服务器信息
