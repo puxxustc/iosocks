@@ -1,6 +1,6 @@
 # iosocks  #
 
-A lightweight SOCKS5 proxy
+A lightweight tunnel proxy, provides a SOCKS5 proxy, a DNS forwarder and a transparent  TCP  proxy
 
 ## Build ##
 
