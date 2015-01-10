@@ -4,5 +4,5 @@ EXTRA_DIST = iosocks.8 isocks@.service osocks@.service iodns@.service ioredir@.s
 
 man_MANS = iosocks.8
 
-systemdservicedir=$(libdir)/systemd/system
+systemdservicedir=/usr/lib/systemd/system
 systemdservice_DATA = isocks@.service osocks@.service iodns@.service ioredir@.service
