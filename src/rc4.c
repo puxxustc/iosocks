@@ -45,9 +45,9 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 #if defined(__amd64__) || defined(__x86_64__)
 #define RC4_ASM 1
 	__asm__ __volatile__ (
-		".1:\n\t"
+		".L1:\n\t"
 		"cmpq %[stream], %[end]\n\t"
-		"je .2\n\t"
+		"je .L2\n\t"
 		/* i = (i + 1) & 255; */
 		"incl %[i]\n\t"
 		"movzbl %b[i], %[i]\n\t"
@@ -66,8 +66,8 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 		/* stream++ */
 		"incq %[stream]\n\t"
 		"cmpq %[stream], %[end]\n\t"
-		"jne .1\n\t"
-		".2:\n\t"
+		"jne .L1\n\t"
+		".L2:\n\t"
 		: [i] "=a"(evp->i),
 		  [j] "=b"(evp->j)
 		: [stream] "r"(stream),
@@ -80,9 +80,9 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 #elif defined(__i386__)
 #define RC4_ASM 1
 	__asm__ __volatile__ (
-		".1:\n\t"
+		".L1:\n\t"
 		"cmpl %[stream], %[end]\n\t"
-		"je .2\n\t"
+		"je .L2\n\t"
 		/* i = (i + 1) & 255; */
 		"incl %[i]\n\t"
 		"movzbl %b[i], %[i]\n\t"
@@ -101,8 +101,8 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 		/* stream++ */
 		"incl %[stream]\n\t"
 		"cmpl %[stream], %[end]\n\t"
-		"jne .1\n\t"
-		".2:\n\t"
+		"jne .L1\n\t"
+		".L2:\n\t"
 		: [i] "=a"(evp->i),
 		  [j] "=b"(evp->j)
 		: [stream] "r"(stream),
@@ -115,9 +115,9 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 #elif defined(__arm__)
 #define RC4_ASM 1
 	__asm__ __volatile__ (
-		".1:\n\t"
+		".L1:\n\t"
 		"cmp %[stream], %[end]\n\t"
-		"bcs .2\n\t"
+		"bcs .L2\n\t"
 		/* i = (i + 1) & 255; */
 		"add %[i], %[i], #1\n\t"
 		"and %[i], %[i], #255\n\t"
@@ -137,8 +137,8 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 		"eor r6, r6, r7\n\t"
 		"strb r6, [%[stream]], #1\n\t"
 		"cmp %[stream], %[end]\n\t"
-		"bne .1\n\t"
-		".2:\n\t"
+		"bne .L1\n\t"
+		".L2:\n\t"
 		: [i] "=r"(evp->i),
 		  [j] "=r"(evp->j)
 		: [stream] "r"(stream),
