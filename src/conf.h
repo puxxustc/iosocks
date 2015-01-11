@@ -48,6 +48,7 @@ typedef struct {
 	{
 		char *address;
 		char *port;
+		int iptables;
 	} redir;
 } conf_t;
 

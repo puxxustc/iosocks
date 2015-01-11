@@ -239,7 +239,13 @@ int read_conf(const char *file, conf_t *conf)
 					}
 					conf->redir.port = strdup(value);
 				}
-
+				else if (strcmp(name, "iptables") == 0)
+				{
+					if (strcmp(value, "true") == 0)
+					{
+						conf->redir.iptables = 1;
+					}
+				}
 			}
 			else
 			{

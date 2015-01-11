@@ -52,7 +52,7 @@ AC_TYPE_UID_T
 
 # Checks for library functions.
 AC_FUNC_MALLOC
-AC_CHECK_FUNCS([bzero gettimeofday memset setresuid setreuid socket strchr strdup strerror])
+AC_CHECK_FUNCS([bzero gettimeofday memset popen pclose setresuid setreuid socket strchr strdup strerror])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile])
