@@ -29,6 +29,10 @@
 #include <unistd.h>
 #include "utils.h"
 
+#ifndef IP6T_SO_ORIGINAL_DST
+#define IP6T_SO_ORIGINAL_DST 80
+#endif
+
 int setnonblock(int fd)
 {
 	int flags;

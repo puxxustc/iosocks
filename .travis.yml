@@ -6,7 +6,7 @@ compiler:
 before_install:
     - sudo apt-get update -qq
 install:
-    - sudo apt-get install -y libev-dev linux-headers-$(uname -r)
+    - sudo apt-get install -y libev-dev
 before_script:
     - "sed -i -e s/69/67/g configure.ac"
     - "autoreconf -i"
