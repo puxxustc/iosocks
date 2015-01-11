@@ -187,15 +187,6 @@ int main(int argc, char **argv)
 		return 3;
 	}
 
-	// 初始化 ev_signal
-	struct ev_loop *loop = EV_DEFAULT;
-	ev_signal w_sigint;
-	ev_signal w_sigterm;
-	ev_signal_init(&w_sigint, signal_cb, SIGINT);
-	ev_signal_init(&w_sigterm, signal_cb, SIGTERM);
-	ev_signal_start(EV_A_ &w_sigint);
-	ev_signal_start(EV_A_ &w_sigterm);
-
 	// 初始化本地监听 socket
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
@@ -226,10 +217,52 @@ int main(int argc, char **argv)
 	}
 	LOG("starting ioredir at %s:%s", conf.redir.address, conf.redir.port);
 
-	// 初始化 ev watcher
-	ev_io w_listen;
-	ev_io_init(&w_listen, accept_cb, sock_listen, EV_READ);
-	ev_io_start(EV_A_ &w_listen);
+	// 调用 iptables
+	if (conf.redir.iptables)
+	{
+		FILE *f = popen("iptables-restore", "w");
+		if (f == NULL)
+		{
+			LOG("warning: failed to run iptables-restore");
+		}
+		fputs("*nat\n", f);
+		fputs("-N iosocks\n", f);
+		fputs("-F iosocks\n", f);
+		char host[conf.server_num][INET_ADDRSTRLEN + 1];
+		for (int i = 0; i < conf.server_num; i++)
+		{
+			if (servers[i].addr.ss_family == AF_INET)
+			{
+				inet_ntop(AF_INET,
+				    &(((struct sockaddr_in *)&servers[i].addr)->sin_addr),
+				    host[i], INET_ADDRSTRLEN);
+				int j;
+				for (j = 0; j < i; j++)
+				{
+					if (strcmp(host[j], host[i]) == 0)
+					{
+						break;
+					}
+				}
+				if (j == i)
+				{
+					fprintf(f, "-A iosocks -d %s -j RETURN\n", host[i]);
+				}
+			}
+		}
+		fputs("-A iosocks -d 0.0.0.0/8 -j RETURN\n", f);
+		fputs("-A iosocks -d 10.0.0.0/8 -j RETURN\n", f);
+		fputs("-A iosocks -d 127.0.0.0/8 -j RETURN\n", f);
+		fputs("-A iosocks -d 169.254.0.0/16 -j RETURN\n", f);
+		fputs("-A iosocks -d 172.16.0.0/12 -j RETURN\n", f);
+		fputs("-A iosocks -d 192.168.0.0/16 -j RETURN\n", f);
+		fputs("-A iosocks -d 224.0.0.0/4 -j RETURN\n", f);
+		fputs("-A iosocks -d 240.0.0.0/4 -j RETURN\n", f);
+		fprintf(f, "-A iosocks -p tcp -j REDIRECT --to-ports %s\n", conf.redir.port);
+		fputs("-A OUTPUT -p tcp -j iosocks\n", f);
+		fputs("COMMIT\n", f);
+		pclose(f);
+	}
 
 	// 切换用户
 	if ((conf.user != NULL) || (conf.group != NULL))
@@ -239,6 +272,20 @@ int main(int argc, char **argv)
 			LOG("warning: failed to set user/group");
 		}
 	}
+
+	// 初始化 ev_signal
+	struct ev_loop *loop = EV_DEFAULT;
+	ev_signal w_sigint;
+	ev_signal w_sigterm;
+	ev_signal_init(&w_sigint, signal_cb, SIGINT);
+	ev_signal_init(&w_sigterm, signal_cb, SIGTERM);
+	ev_signal_start(EV_A_ &w_sigint);
+	ev_signal_start(EV_A_ &w_sigterm);
+
+	// 初始化 ev watcher
+	ev_io w_listen;
+	ev_io_init(&w_listen, accept_cb, sock_listen, EV_READ);
+	ev_io_start(EV_A_ &w_listen);
 
 	// 执行事件循环
 	ev_run(EV_A_ 0);
@@ -503,9 +550,11 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents)
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
+	assert(conn->tx_bytes > 0);
 
 	if (conn->state == CLOSED)
 	{
+		ev_io_stop(EV_A_ w);
 		ssize_t tx_bytes = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
 		if (tx_bytes != conn->tx_bytes)
 		{
@@ -527,7 +576,6 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents)
 	}
 	else
 	{
-		assert(conn->tx_bytes > 0);
 		ssize_t n = send(conn->sock_remote, conn->tx_buf + conn->tx_offset, conn->tx_bytes, MSG_NOSIGNAL);
 		if (n < 0)
 		{
