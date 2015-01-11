@@ -30,6 +30,16 @@
 /* Define to 1 if you have the `resolv' library (-lresolv). */
 #undef HAVE_LIBRESOLV
 
+/* Define to 1 if you have the <linux/if.h> header file. */
+#undef HAVE_LINUX_IF_H
+
+/* Define to 1 if you have the <linux/netfilter_ipv4.h> header file. */
+#undef HAVE_LINUX_NETFILTER_IPV4_H
+
+/* Define to 1 if you have the <linux/netfilter_ipv6/ip6_tables.h> header
+   file. */
+#undef HAVE_LINUX_NETFILTER_IPV6_IP6_TABLES_H
+
 /* Define to 1 if your system has a GNU libc compatible `malloc' function, and
    to 0 otherwise. */
 #undef HAVE_MALLOC
@@ -51,6 +61,12 @@
 
 /* Define to 1 if you have the <resolv.h> header file. */
 #undef HAVE_RESOLV_H
+
+/* Define to 1 if you have the `setresuid' function. */
+#undef HAVE_SETRESUID
+
+/* Define to 1 if you have the `setreuid' function. */
+#undef HAVE_SETREUID
 
 /* Define to 1 if you have the `socket' function. */
 #undef HAVE_SOCKET
@@ -93,6 +109,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Define to 1 if assertions should be disabled. */
+#undef NDEBUG
 
 /* Name of package */
 #undef PACKAGE
