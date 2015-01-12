@@ -28,15 +28,9 @@ sudo make install
 
 ## Usage ##
 
-**isocks**
-
-```bash
-usage: isocks
-  -h, --help        show this help
-  -c <config_file>  config file, see iosocks(8) for its syntax
-```
-
 **osocks**
+
+runs on a remote server to provide secured tunnel service.
 
 ```bash
 usage: osocks
@@ -44,7 +38,19 @@ usage: osocks
   -c <config_file>  config file, see iosocks(8) for its syntax
 ```
 
+**isocks**
+
+A standard SOCKS5 proxy.
+
+```bash
+usage: isocks
+  -h, --help        show this help
+  -c <config_file>  config file, see iosocks(8) for its syntax
+```
+
 **iodns**
+
+A DNS forwarder that transmits all DNS queries throw the tunnel.
 
 ```bash
 usage: iodns
@@ -53,6 +59,8 @@ usage: iodns
 ```
 
 **ioredir**
+
+A transparent TCP proxy.
 
 ```bash
 usage: ioredir
@@ -67,21 +75,26 @@ usage: ioredir
 address=192.168.1.1
 port=1205
 key=testkey
+
 [server]
 address=192.168.1.2
 port=1205
 key=testkey2
+
 [local]
 address=127.0.0.1
 port=1080
+
 [dns]
 address=127.0.0.1
 port=5300
 upstream_addr=8.8.8.8
 upstream_port=53
+
 [redir]
 address=127.0.0.1
 port=1081
+iptables=true
 ```
 
 

@@ -76,8 +76,8 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = isocks$(EXEEXT) iodns$(EXEEXT) ioredir$(EXEEXT) \
-	osocks$(EXEEXT)
+bin_PROGRAMS = ioserver$(EXEEXT) ioclient$(EXEEXT) iodns$(EXEEXT) \
+	ioredir$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/auto/depcomp
@@ -91,6 +91,11 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
+am_ioclient_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) \
+	ioclient.$(OBJEXT) log.$(OBJEXT) md5.$(OBJEXT) mem.$(OBJEXT) \
+	rc4.$(OBJEXT) utils.$(OBJEXT)
+ioclient_OBJECTS = $(am_ioclient_OBJECTS)
+ioclient_LDADD = $(LDADD)
 am_iodns_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) iodns.$(OBJEXT) \
 	log.$(OBJEXT) md5.$(OBJEXT) mem.$(OBJEXT) rc4.$(OBJEXT) \
 	utils.$(OBJEXT)
@@ -101,16 +106,11 @@ am_ioredir_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) \
 	rc4.$(OBJEXT) utils.$(OBJEXT)
 ioredir_OBJECTS = $(am_ioredir_OBJECTS)
 ioredir_LDADD = $(LDADD)
-am_isocks_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) isocks.$(OBJEXT) \
-	log.$(OBJEXT) md5.$(OBJEXT) mem.$(OBJEXT) rc4.$(OBJEXT) \
+am_ioserver_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) log.$(OBJEXT) \
+	md5.$(OBJEXT) mem.$(OBJEXT) ioserver.$(OBJEXT) rc4.$(OBJEXT) \
 	utils.$(OBJEXT)
-isocks_OBJECTS = $(am_isocks_OBJECTS)
-isocks_LDADD = $(LDADD)
-am_osocks_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) log.$(OBJEXT) \
-	md5.$(OBJEXT) mem.$(OBJEXT) osocks.$(OBJEXT) rc4.$(OBJEXT) \
-	utils.$(OBJEXT)
-osocks_OBJECTS = $(am_osocks_OBJECTS)
-osocks_LDADD = $(LDADD)
+ioserver_OBJECTS = $(am_ioserver_OBJECTS)
+ioserver_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -139,10 +139,10 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(iodns_SOURCES) $(ioredir_SOURCES) $(isocks_SOURCES) \
-	$(osocks_SOURCES)
-DIST_SOURCES = $(iodns_SOURCES) $(ioredir_SOURCES) $(isocks_SOURCES) \
-	$(osocks_SOURCES)
+SOURCES = $(ioclient_SOURCES) $(iodns_SOURCES) $(ioredir_SOURCES) \
+	$(ioserver_SOURCES)
+DIST_SOURCES = $(ioclient_SOURCES) $(iodns_SOURCES) $(ioredir_SOURCES) \
+	$(ioserver_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -256,21 +256,37 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CFLAGS = -pipe -W -Wall -Wno-unused-parameter -fno-strict-aliasing -D_GNU_SOURCE
-isocks_SOURCES = conf.c \
-                 encrypt.c \
-                 isocks.c \
-                 log.c \
-                 md5.c \
-                 mem.c \
-                 rc4.c \
-                 utils.c \
-                 conf.h \
-                 encrypt.h \
-                 log.h \
-                 md5.h \
-                 mem.h \
-                 rc4.h \
-                 utils.h
+ioserver_SOURCES = conf.c \
+                   encrypt.c \
+                   log.c \
+                   md5.c \
+                   mem.c \
+                   ioserver.c \
+                   rc4.c \
+                   utils.c \
+                   conf.h \
+                   encrypt.h \
+                   log.h \
+                   md5.h \
+                   mem.h \
+                   rc4.h \
+                   utils.h
+
+ioclient_SOURCES = conf.c \
+                   encrypt.c \
+                   ioclient.c \
+                   log.c \
+                   md5.c \
+                   mem.c \
+                   rc4.c \
+                   utils.c \
+                   conf.h \
+                   encrypt.h \
+                   log.h \
+                   md5.h \
+                   mem.h \
+                   rc4.h \
+                   utils.h
 
 iodns_SOURCES = conf.c \
                 encrypt.c \
@@ -303,22 +319,6 @@ ioredir_SOURCES = conf.c \
                   mem.h \
                   rc4.h \
                   utils.h
-
-osocks_SOURCES = conf.c \
-                 encrypt.c \
-                 log.c \
-                 md5.c \
-                 mem.c \
-                 osocks.c \
-                 rc4.c \
-                 utils.c \
-                 conf.h \
-                 encrypt.h \
-                 log.h \
-                 md5.h \
-                 mem.h \
-                 rc4.h \
-                 utils.h
 
 all: all-am
 
@@ -397,6 +397,10 @@ uninstall-binPROGRAMS:
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
 
+ioclient$(EXEEXT): $(ioclient_OBJECTS) $(ioclient_DEPENDENCIES) $(EXTRA_ioclient_DEPENDENCIES) 
+	@rm -f ioclient$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(ioclient_OBJECTS) $(ioclient_LDADD) $(LIBS)
+
 iodns$(EXEEXT): $(iodns_OBJECTS) $(iodns_DEPENDENCIES) $(EXTRA_iodns_DEPENDENCIES) 
 	@rm -f iodns$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(iodns_OBJECTS) $(iodns_LDADD) $(LIBS)
@@ -405,13 +409,9 @@ ioredir$(EXEEXT): $(ioredir_OBJECTS) $(ioredir_DEPENDENCIES) $(EXTRA_ioredir_DEP
 	@rm -f ioredir$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(ioredir_OBJECTS) $(ioredir_LDADD) $(LIBS)
 
-isocks$(EXEEXT): $(isocks_OBJECTS) $(isocks_DEPENDENCIES) $(EXTRA_isocks_DEPENDENCIES) 
-	@rm -f isocks$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(isocks_OBJECTS) $(isocks_LDADD) $(LIBS)
-
-osocks$(EXEEXT): $(osocks_OBJECTS) $(osocks_DEPENDENCIES) $(EXTRA_osocks_DEPENDENCIES) 
-	@rm -f osocks$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(osocks_OBJECTS) $(osocks_LDADD) $(LIBS)
+ioserver$(EXEEXT): $(ioserver_OBJECTS) $(ioserver_DEPENDENCIES) $(EXTRA_ioserver_DEPENDENCIES) 
+	@rm -f ioserver$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(ioserver_OBJECTS) $(ioserver_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -421,13 +421,13 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/conf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/encrypt.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ioclient.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iodns.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ioredir.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/isocks.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ioserver.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/md5.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mem.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/osocks.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rc4.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utils.Po@am__quote@
 

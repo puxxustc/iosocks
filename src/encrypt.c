@@ -29,7 +29,7 @@ void enc_init(enc_evp_t *evp, enc_method_t method, const void *key, size_t key_l
 	case enc_rc4:
 	{
 		rc4_init(&evp->enc_evp.rc4, key, key_len);
-		rc4_init(&evp->dec_evp.rc4, key, key_len);
+		evp->dec_evp = evp->enc_evp;
 		break;
 	}
 	default:

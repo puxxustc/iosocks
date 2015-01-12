@@ -1,5 +1,5 @@
 [Unit]
-Description=ioredir service
+Description=IoSocks Redirecter Service
 After=network.target
 
 [Service]

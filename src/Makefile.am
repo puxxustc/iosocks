@@ -1,22 +1,38 @@
 AM_CFLAGS=-pipe -W -Wall -Wno-unused-parameter -fno-strict-aliasing -D_GNU_SOURCE
 
-bin_PROGRAMS = isocks iodns ioredir osocks
+bin_PROGRAMS = ioserver ioclient iodns ioredir
 
-isocks_SOURCES = conf.c \
-                 encrypt.c \
-                 isocks.c \
-                 log.c \
-                 md5.c \
-                 mem.c \
-                 rc4.c \
-                 utils.c \
-                 conf.h \
-                 encrypt.h \
-                 log.h \
-                 md5.h \
-                 mem.h \
-                 rc4.h \
-                 utils.h
+ioserver_SOURCES = conf.c \
+                   encrypt.c \
+                   log.c \
+                   md5.c \
+                   mem.c \
+                   ioserver.c \
+                   rc4.c \
+                   utils.c \
+                   conf.h \
+                   encrypt.h \
+                   log.h \
+                   md5.h \
+                   mem.h \
+                   rc4.h \
+                   utils.h
+
+ioclient_SOURCES = conf.c \
+                   encrypt.c \
+                   ioclient.c \
+                   log.c \
+                   md5.c \
+                   mem.c \
+                   rc4.c \
+                   utils.c \
+                   conf.h \
+                   encrypt.h \
+                   log.h \
+                   md5.h \
+                   mem.h \
+                   rc4.h \
+                   utils.h
 
 iodns_SOURCES = conf.c \
                 encrypt.c \
@@ -49,19 +65,3 @@ ioredir_SOURCES = conf.c \
                   mem.h \
                   rc4.h \
                   utils.h
-
-osocks_SOURCES = conf.c \
-                 encrypt.c \
-                 log.c \
-                 md5.c \
-                 mem.c \
-                 osocks.c \
-                 rc4.c \
-                 utils.c \
-                 conf.h \
-                 encrypt.h \
-                 log.h \
-                 md5.h \
-                 mem.h \
-                 rc4.h \
-                 utils.h

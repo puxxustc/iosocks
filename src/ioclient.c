@@ -1,5 +1,5 @@
 /*
- * isocks.c - iosocks client
+ * ioclient.c - iosocks client
  *
  * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
  *

@@ -1,5 +1,5 @@
 /*
- * iodns.c - A dns server that forward all requests to osocks
+ * iodns.c - A dns server that forward all requests to ioserver
  *
  * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
  *

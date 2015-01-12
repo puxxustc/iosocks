@@ -1,5 +1,5 @@
 /*
- * osocks.c - iosocks server
+ * ioserver.c - iosocks server
  *
  * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
  *

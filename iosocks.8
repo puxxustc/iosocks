@@ -1,16 +1,16 @@
-.TH IOSOCKS 8 "Jan 7, 2015"
+.TH IOSOCKS 8 "Jan 12, 2015"
 .SH NAME
-iosocks \- A lightweight SOCKS5 proxy
+iosocks \- A lightweight tunnel proxy
 
 .SH SYNOPSIS
-\fBisocks\fR|\fBosocks\fR|\fBiodns\fR|\fBioredir\fR
+\fBioserver\fR|\fBioclient\fR|\fBiodns\fR|\fBioredir\fR
     \-h, \-\-help
     \-c <config_file>
 
 .SH DESCRIPTION
-\fBiosocks\fR is a lightweight SOCKS5 proxy written in pure C, using \fBlibev\fR as event loop library. It has high performance and low resource consumption.
+\fBiosocks\fR is a lightweight tunnel proxy, provides a SOCKS5 proxy, a DNS forwarder and a transparent  TCP  proxy.
 .PP
-\fBiosocks\fR consists of 4 components. \fBosocks\fR runs on a remote server to provide secured tunnel service. \fBisocks\fR is a standard SOCKS5 proxy that trasmits all data to \fBosocks\fR. \fBiodns\fR is a DNS forwarder that transmits all DNS queries to \fBosocks\fR. \fBioredir\fR is a transparent TCP proxy and requires netfilter's NAT function.
+\fBiosocks\fR consists of 4 components. \fBioserver\fR runs on a remote server to provide secured tunnel service. \fBioclient\fR is a standard SOCKS5 proxy that trasmits all data to \fBioserver\fR. \fBiodns\fR is a DNS forwarder that transmits all DNS queries to \fBioserver\fR. \fBioredir\fR is a transparent TCP proxy and requires netfilter's NAT function.
 .PP
 
 .SH OPTIONS
