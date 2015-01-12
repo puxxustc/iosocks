@@ -28,22 +28,22 @@ sudo make install
 
 ## Usage ##
 
-**osocks**
+**ioserver**
 
 runs on a remote server to provide secured tunnel service.
 
 ```bash
-usage: osocks
+usage: ioserver
   -h, --help        show this help
   -c <config_file>  config file, see iosocks(8) for its syntax
 ```
 
-**isocks**
+**ioclient**
 
 A standard SOCKS5 proxy.
 
 ```bash
-usage: isocks
+usage: ioclient
   -h, --help        show this help
   -c <config_file>  config file, see iosocks(8) for its syntax
 ```
@@ -97,6 +97,25 @@ port=1081
 iptables=true
 ```
 
+## Advanced usage ##
+
+ioredir prorides a transpant TCP proxy. This feature requires Linux netfilter's NAT function.
+
+```bash
+iptables -t nat -N iosocks
+iptables -t nat -A iosocks -d ${server} -j RETURN
+iptables -t nat -A iosocks -d 0.0.0.0/8 -j RETURN
+iptables -t nat -A iosocks -d 10.0.0.0/8 -j RETURN
+iptables -t nat -A iosocks -d 127.0.0.0/8 -j RETURN
+iptables -t nat -A iosocks -d 169.254.0.0/16 -j RETURN
+iptables -t nat -A iosocks -d 172.16.0.0/12 -j RETURN
+iptables -t nat -A iosocks -d 192.168.0.0/16 -j RETURN
+iptables -t nat -A iosocks -d 224.0.0.0/4 -j RETURN
+iptables -t nat -A iosocks -d 240.0.0.0/4 -j RETURN
+iptables -t nat -A iosocks -p tcp -j REDIRECT --to-ports 1081
+```
+
+These operations can be done automatically if 'iptables=true' is set in config file.
 
 ## License ##
 
