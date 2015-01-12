@@ -14,6 +14,22 @@ AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 AC_PROG_CC_C99
 AC_PROG_INSTALL
 
+AC_ARG_ENABLE(
+    [assembly],
+    [AS_HELP_STRING([--disable-assembly], [disable inline assembly])],
+    [
+        case "${enableval}" in
+            yes) assembly=true ;;
+            no)  assembly=false ;;
+            *)   AC_MSG_ERROR(bad value ${enableval} for --disable-assembly) ;;
+        esac
+    ],
+    [assembly=true]
+)
+if test "${assembly}" = "true" ; then
+    AC_DEFINE([USE_ASSEMBLY], [1], [Use assembly to boost RC4])
+fi
+
 # Checks for libraries.
 AC_CHECK_LIB([anl], [getaddrinfo_a])
 AC_CHECK_LIB([resolv], [ns_initparse])

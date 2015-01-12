@@ -92,6 +92,11 @@ Local address, default: 127.0.0.1
 .B \fIport=\fR
 .br
 Local port, default: 1081
+.br
+.TP
+.B \fIiptables=\fR
+.br
+If true, add netfilter rules
 
 .SH EXAMPLE
 Here is a sample config file:
@@ -99,30 +104,31 @@ Here is a sample config file:
     [global]
     user=nobody
     group=nobody
-    
+
     [server]
     address=192.168.1.1
     port=1205
     key=testkey
-    
+
     [server]
     address=192.168.1.2
     port=1205
     key=testkey2
-    
+
     [local]
     address=127.0.0.1
     port=1080
-    
+
     [dns]
     address=127.0.0.1
     port=53
     upstream_addr=8.8.8.8
     upstream_port=53
-    
+
     [redir]
     address=127.0.0.1
     port=1081
+    iptables=true
 
 .SH AUTHOR
 .PP

@@ -717,6 +717,7 @@ ac_user_opts='
 enable_option_checking
 enable_silent_rules
 enable_dependency_tracking
+enable_assembly
 enable_assert
 '
       ac_precious_vars='build_alias
@@ -1348,6 +1349,7 @@ Optional Features:
                           do not reject slow dependency extractors
   --disable-dependency-tracking
                           speeds up one-time build
+  --disable-assembly      disable inline assembly
   --disable-assert        turn off assertions
 
 Some influential environment variables:
@@ -4083,6 +4085,26 @@ fi
 
 
 
+
+# Check whether --enable-assembly was given.
+if test "${enable_assembly+set}" = set; then :
+  enableval=$enable_assembly;
+        case "${enableval}" in
+            yes) assembly=true ;;
+            no)  assembly=false ;;
+            *)   as_fn_error $? "bad value ${enableval} for --disable-assembly" "$LINENO" 5 ;;
+        esac
+
+else
+  assembly=true
+
+fi
+
+if test "${assembly}" = "true" ; then
+
+$as_echo "#define USE_ASSEMBLY 1" >>confdefs.h
+
+fi
 
 # Checks for libraries.
 

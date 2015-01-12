@@ -20,6 +20,10 @@
 #include <stdint.h>
 #include "rc4.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #define SWAP(x, y) do {register uint8_t tmp = (x); (x) = (y); (y) = tmp; } while (0)
 
 void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len)
@@ -41,7 +45,7 @@ void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len)
 
 void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 {
-#if defined(__GNUC__) && 1
+#if defined(__GNUC__) && defined(USE_ASSEMBLY)
 #if defined(__amd64__) || defined(__x86_64__)
 #define RC4_ASM 1
 	__asm__  (

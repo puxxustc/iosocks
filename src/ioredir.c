@@ -189,7 +189,7 @@ int main(int argc, char **argv)
 
 	// 初始化本地监听 socket
 	bzero(&hints, sizeof(struct addrinfo));
-	hints.ai_family = AF_UNSPEC;
+	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	if (getaddrinfo(conf.redir.address, conf.redir.port, &hints, &res) != 0)
 	{
