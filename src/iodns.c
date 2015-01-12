@@ -1,5 +1,5 @@
 /*
- * iodns.c - A dns server that forward all requests to ioserver
+ * iodns.c - A DNS forwarder
  *
  * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -376,7 +376,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	    conf.dns.upstream_addr, conf.dns.upstream_port,
 	    conf.server[index].address, conf.server[index].port);
 
-	// iosocks 请求
+	// IoSocks Request
 	// +-------+------+------+------+
 	// | MAGIC | HOST | PORT |  IV  |
 	// +-------+------+------+------+
@@ -398,6 +398,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
 	io_encrypt(conn->tx_buf + 512, conn->tx_bytes, &conn->enc_evp);
 	conn->tx_bytes += 512;
+
 	// 建立远程连接
 	conn->sock_remote = socket(servers[index].addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
 	if (conn->sock_remote < 0)
@@ -435,7 +436,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	else
 	{
 		// 连接失败
-		LOG("connect to osocks failed");
+		LOG("connect to ioserver failed");
 		close(conn->sock_local);
 		close(conn->sock_remote);
 		mem_delete(conn);

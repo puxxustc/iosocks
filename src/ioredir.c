@@ -1,5 +1,5 @@
 /*
- * ioredir.c - A transparent TCP proxy through remote osocks servers
+ * ioredir.c - A transparent TCP proxy
  *
  * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -299,7 +299,7 @@ int main(int argc, char **argv)
 
 static void help(void)
 {
-	printf("usage: iodns\n"
+	printf("usage: ioredir\n"
 		   "  -h, --help        show this help\n"
 		   "  -c <config_file>  config file, see iosocks(8) for its syntax\n"
 		   "");
@@ -359,7 +359,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	index %= (unsigned int)conf.server_num;
 	LOG("connect %s:%s via %s:%s", host, port, conf.server[index].address, conf.server[index].port);
 
-	// iosocks 请求
+	// IoSocks Request
 	// +-------+------+------+------+
 	// | MAGIC | HOST | PORT |  IV  |
 	// +-------+------+------+------+
@@ -416,7 +416,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	else
 	{
 		// 连接失败
-		LOG("connect to osocks failed");
+		LOG("connect to ioserver failed");
 		close(conn->sock_local);
 		close(conn->sock_remote);
 		mem_delete(conn);

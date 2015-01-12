@@ -53,13 +53,6 @@
 #define EWOULDBLOCK EAGAIN
 #endif
 
-// 连接状态
-typedef enum
-{
-	CLOSED = 0,
-	ESTAB
-} state_t;
-
 
 // 域名解析控制块
 typedef struct
@@ -86,7 +79,6 @@ typedef struct
 	int server_index;
 	int sock_local;
 	int sock_remote;
-	state_t state;
 	enc_evp_t enc_evp;
 	uint8_t rx_buf[BUF_SIZE];
 	uint8_t tx_buf[BUF_SIZE];
@@ -96,6 +88,7 @@ typedef struct
 static void help(void);
 static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
+static void req_recv_cb(EV_P_ ev_io *w, int revents);
 static void local_read_cb(EV_P_ ev_io *w, int revents);
 static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
@@ -245,7 +238,7 @@ int main(int argc, char **argv)
 		ev_io_init(&(w_listen[i]), accept_cb, sock_listen[i], EV_READ);
 		w_listen[i].data = (void *)(long)i;
 		ev_io_start(EV_A_ &(w_listen[i]));
-		LOG("starting osocks at %s:%s", conf.server[i].address, conf.server[i].port);
+		LOG("starting ioserver at %s:%s", conf.server[i].address, conf.server[i].port);
 	}
 
 	// 切换用户
@@ -272,10 +265,10 @@ int main(int argc, char **argv)
 
 static void help(void)
 {
-	printf("usage: osocks\n"
-		   "  -h, --help        show this help\n"
-		   "  -c <config_file>  config file, see iosocks(8) for its syntax\n"
-		   "");
+	printf("usage: ioserver\n"
+	       "  -h, --help        show this help\n"
+	       "  -c <config_file>  config file, see iosocks(8) for its syntax\n"
+	       "");
 }
 
 static void signal_cb(EV_P_ ev_signal *w, int revents)
@@ -303,140 +296,87 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	settimeout(conn->sock_local);
 	setkeepalive(conn->sock_local);
 	conn->server_index = (int)(long)(w->data);
-	conn->state = CLOSED;
-	ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
+	ev_io_init(&conn->w_local_read, req_recv_cb, conn->sock_local, EV_READ);
 	conn->w_local_read.data = (void *)conn;
 	ev_io_start(EV_A_ &conn->w_local_read);
 }
 
-static void local_read_cb(EV_P_ ev_io *w, int revents)
+static void req_recv_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
 
-	switch (conn->state)
+	ev_io_stop(EV_A_ w);
+
+	conn->tx_bytes = recv(conn->sock_local, conn->tx_buf, BUF_SIZE, 0);
+	if (conn->tx_bytes < 512)
 	{
-	case CLOSED:
-	{
-		// iosocks 请求
-		// +-------+------+------+------+
-		// | MAGIC | HOST | PORT |  IV  |
-		// +-------+------+------+------+
-		// |   4   | 257  |  15  | 236  |
-		// +-------+------+------+------+
-		ev_io_stop(EV_A_ w);
-		conn->tx_bytes = recv(conn->sock_local, conn->tx_buf, BUF_SIZE, 0);
-		if (conn->tx_bytes < 512)
+		if (conn->tx_bytes < 0)
 		{
-			if (conn->tx_bytes < 0)
-			{
-				LOG("client reset");
-			}
-			close(conn->sock_local);
-			mem_delete(conn);
-			return;
+			LOG("client reset");
 		}
-		uint8_t key[64];
-		memcpy(conn->rx_buf, conn->tx_buf + 276, 236);
-		memcpy(conn->rx_buf + 236, servers[conn->server_index].key, servers[conn->server_index].key_len);
-		md5(conn->rx_buf, 236 + servers[conn->server_index].key_len, key);
-		md5(key, 16, key + 16);
-		md5(key, 32, key + 32);
-		md5(key, 48, key + 48);
-		enc_init(&conn->enc_evp, enc_rc4, key, 64);
-		io_decrypt(conn->tx_buf, 276, &conn->enc_evp);
-		if (ntohl(*((uint32_t *)(conn->tx_buf))) != MAGIC)
-		{
-			LOG("illegal client");
-			close(conn->sock_local);
-			mem_delete(conn);
-			return;
-		}
-		char *host = (char *)conn->tx_buf + 4;
-		char *port = (char *)conn->tx_buf + 261;
-		host[256] = '\0';
-		port[14] = '\0';
-		LOG("connect %s:%s", host, port);
-		conn->gai = (gai_t *)mem_new(sizeof(gai_t));
-		if (conn->gai == NULL)
-		{
-			LOG("out of memory");
-			close(conn->sock_local);
-			mem_delete(conn);
-			return;
-		}
-		conn->gai->hints.ai_family = AF_UNSPEC;
-		conn->gai->hints.ai_socktype = SOCK_STREAM;
-		strcpy(conn->gai->host, host);
-		strcpy(conn->gai->port, port);
-		bzero(&(conn->gai->req), sizeof(struct gaicb));
-		conn->gai->req.ar_name = conn->gai->host;
-		conn->gai->req.ar_service = conn->gai->port;
-		conn->gai->req.ar_request = &(conn->gai->hints);
-		conn->gai->req.ar_result = NULL;
-		struct gaicb *req_ptr = &(conn->gai->req);
-		struct sigevent sevp;
-		sevp.sigev_notify = SIGEV_SIGNAL;
-		sevp.sigev_signo = SIGUSR1;
-		sevp.sigev_value.sival_ptr = (void *)conn;
-		if (getaddrinfo_a(GAI_NOWAIT, &req_ptr, 1, &sevp) != 0)
-		{
-			close(conn->sock_local);
-			mem_delete(conn);
-			return;
-		}
-		break;
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
 	}
-	case ESTAB:
+
+	// IoSocks Request
+	// +-------+------+------+------+
+	// | MAGIC | HOST | PORT |  IV  |
+	// +-------+------+------+------+
+	// |   4   | 257  |  15  | 236  |
+	// +-------+------+------+------+
+	uint8_t key[64];
+	memcpy(conn->rx_buf, conn->tx_buf + 276, 236);
+	memcpy(conn->rx_buf + 236, servers[conn->server_index].key, servers[conn->server_index].key_len);
+	md5(conn->rx_buf, 236 + servers[conn->server_index].key_len, key);
+	md5(key, 16, key + 16);
+	md5(key, 32, key + 32);
+	md5(key, 48, key + 48);
+	enc_init(&conn->enc_evp, enc_rc4, key, 64);
+	io_decrypt(conn->tx_buf, 276, &conn->enc_evp);
+	if (ntohl(*((uint32_t *)(conn->tx_buf))) != MAGIC)
 	{
-		conn->tx_bytes = recv(conn->sock_local, conn->tx_buf, BUF_SIZE, 0);
-		if (conn->tx_bytes <= 0)
-		{
-			if (conn->tx_bytes < 0)
-			{
-				LOG("client reset");
-			}
-			cleanup(EV_A_ conn);
-			return;
-		}
-		io_decrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
-		ssize_t n = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
-		if (n < 0)
-		{
-			if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-			{
-				conn->tx_offset = 0;
-			}
-			else
-			{
-				ERR("send");
-				cleanup(EV_A_ conn);
-				return;
-			}
-		}
-		else if (n < conn->tx_bytes)
-		{
-			conn->tx_offset = n;
-			conn->tx_bytes -= n;
-		}
-		else
-		{
-			return;
-		}
-		ev_io_stop(EV_A_ w);
-		ev_io_start(EV_A_ &conn->w_remote_write);
-		break;
+		LOG("illegal client");
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
 	}
-	default:
+	char *host = (char *)conn->tx_buf + 4;
+	char *port = (char *)conn->tx_buf + 261;
+	host[256] = '\0';
+	port[14] = '\0';
+	LOG("connect %s:%s", host, port);
+	conn->gai = (gai_t *)mem_new(sizeof(gai_t));
+	if (conn->gai == NULL)
 	{
-		// 不应该来到这里
-		assert(0 != 0);
-		break;
+		LOG("out of memory");
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
 	}
+	conn->gai->hints.ai_family = AF_UNSPEC;
+	conn->gai->hints.ai_socktype = SOCK_STREAM;
+	strcpy(conn->gai->host, host);
+	strcpy(conn->gai->port, port);
+	bzero(&(conn->gai->req), sizeof(struct gaicb));
+	conn->gai->req.ar_name = conn->gai->host;
+	conn->gai->req.ar_service = conn->gai->port;
+	conn->gai->req.ar_request = &(conn->gai->hints);
+	conn->gai->req.ar_result = NULL;
+	struct gaicb *req_ptr = &(conn->gai->req);
+	struct sigevent sevp;
+	sevp.sigev_notify = SIGEV_SIGNAL;
+	sevp.sigev_signo = SIGUSR1;
+	sevp.sigev_value.sival_ptr = (void *)conn;
+	if (getaddrinfo_a(GAI_NOWAIT, &req_ptr, 1, &sevp) != 0)
+	{
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
 	}
 }
-
 static void resolv_cb(int signo, siginfo_t *info, void *context)
 {
 	conn_t *conn = (conn_t *)info->si_value.sival_ptr;
@@ -488,10 +428,11 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 		// 连接成功
 		freeaddrinfo(conn->gai->req.ar_result);
 		mem_delete(conn->gai);
-		conn->state = ESTAB;
+		ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
 		ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
 		ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
 		ev_io_init(&conn->w_remote_write, remote_write_cb, conn->sock_remote, EV_WRITE);
+		conn->w_local_read.data = (void *)conn;
 		conn->w_local_write.data = (void *)conn;
 		conn->w_remote_read.data = (void *)conn;
 		conn->w_remote_write.data = (void *)conn;
@@ -546,12 +487,55 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	}
 }
 
+static void local_read_cb(EV_P_ ev_io *w, int revents)
+{
+	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn != NULL);
+
+	conn->tx_bytes = recv(conn->sock_local, conn->tx_buf, BUF_SIZE, 0);
+	if (conn->tx_bytes <= 0)
+	{
+		if (conn->tx_bytes < 0)
+		{
+			LOG("client reset");
+		}
+		cleanup(EV_A_ conn);
+		return;
+	}
+	io_decrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
+	ssize_t n = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
+	if (n < 0)
+	{
+		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+		{
+			conn->tx_offset = 0;
+		}
+		else
+		{
+			ERR("send");
+			cleanup(EV_A_ conn);
+			return;
+		}
+	}
+	else if (n < conn->tx_bytes)
+	{
+		conn->tx_offset = n;
+		conn->tx_bytes -= n;
+	}
+	else
+	{
+		return;
+	}
+	ev_io_stop(EV_A_ w);
+	ev_io_start(EV_A_ &conn->w_remote_write);
+}
+
 static void local_write_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)w->data;
 
 	assert(conn != NULL);
-	assert(conn->state == ESTAB);
 	assert(conn->rx_bytes > 0);
 
 	ssize_t n = send(conn->sock_local, conn->rx_buf + conn->rx_offset, conn->rx_bytes, MSG_NOSIGNAL);
@@ -585,7 +569,6 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
-	assert(conn->state == ESTAB);
 
 	conn->rx_bytes = recv(conn->sock_remote, conn->rx_buf, BUF_SIZE, 0);
 	if (conn->rx_bytes <= 0)
@@ -630,7 +613,6 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents)
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
-	assert(conn->state == ESTAB);
 	assert(conn->tx_bytes > 0);
 
 	ssize_t n = send(conn->sock_remote, conn->tx_buf + conn->tx_offset, conn->tx_bytes, MSG_NOSIGNAL);

@@ -236,7 +236,7 @@ int main(int argc, char **argv)
 	ev_io w_listen;
 	ev_io_init(&w_listen, accept_cb, sock_listen, EV_READ);
 	ev_io_start(EV_A_ &w_listen);
-	LOG("starting isocks at %s:%s", conf.local.address, conf.local.port);
+	LOG("starting ioclient at %s:%s", conf.local.address, conf.local.port);
 
 	// 切换用户
 	if ((conf.user != NULL) || (conf.group != NULL))
@@ -259,7 +259,7 @@ int main(int argc, char **argv)
 
 static void help(void)
 {
-	printf("usage: isocks\n"
+	printf("usage: ioclient\n"
 		   "  -h, --help        show this help\n"
 		   "  -c <config_file>  config file, see iosocks(8) for its syntax\n"
 		   "");
@@ -428,7 +428,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			rand_bytes(&index, sizeof(unsigned int));
 			index %= (unsigned int)conf.server_num;
 			LOG("connect %s:%s via %s:%s", host, port, conf.server[index].address, conf.server[index].port);
-			// iosocks 请求
+			// IoSocks Request
 			// +-------+------+------+------+
 			// | MAGIC | HOST | PORT |  IV  |
 			// +-------+------+------+------+
@@ -811,7 +811,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	}
 	else
 	{
-		LOG("connect to iosocks server failed");
+		LOG("connect to ioserver failed");
 		// 命令应答格式
 		// +-----+-----+-------+------+----------+----------+
 		// | VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
