@@ -19,8 +19,14 @@ sudo apt-get install libev-dev
 
 ### make & install ###
 
+If autoconf < 2.69 or automake < 2.14
+
 ```bash
-# if automake < 1.14, run `autoreconf -i'
+sed -i -e s/69/67/g configure.ac
+autoreconf -i
+```
+
+```bash
 ./configure --prefix=/usr
 make
 sudo make install
