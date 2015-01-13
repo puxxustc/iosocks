@@ -506,17 +506,7 @@ static void socks5_send_cb(EV_P_ ev_io *w, int revents)
 
 	ev_io_stop(EV_A_ w);
 
-	ssize_t n = send(conn->sock_local, conn->rx_buf, conn->rx_bytes, MSG_NOSIGNAL);
-	if (n != conn->rx_bytes)
-	{
-		if (n < 0)
-		{
-			ERR("send");
-		}
-		close(conn->sock_local);
-		mem_delete(conn);
-		return;
-	}
+	send(conn->sock_local, conn->rx_buf, conn->rx_bytes, MSG_NOSIGNAL);
 
 	switch (conn->state)
 	{
@@ -598,6 +588,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	{
 		LOG("connect to ioserver failed");
 		close(conn->sock_local);
+		close(conn->sock_remote);
 		mem_delete(conn);
 	}
 }
@@ -619,6 +610,7 @@ static void iosocks_send_cb(EV_P_ ev_io *w, int revents)
 			ERR("send");
 		}
 		close(conn->sock_local);
+		close(conn->sock_remote);
 		mem_delete(conn);
 		return;
 	}
