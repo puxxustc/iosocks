@@ -84,6 +84,7 @@ static void help(void);
 static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
 static void connect_cb(EV_P_ ev_io *w, int revents);
+static void iosocks_send_cb(EV_P_ ev_io *w, int revents);
 static void local_read_cb(EV_P_ ev_io *w, int revents);
 static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
@@ -293,6 +294,13 @@ int main(int argc, char **argv)
 	// 退出
 	close(sock_listen);
 	LOG("Exit");
+	if (conf.redir.iptables)
+	{
+		LOG("Please run following commands to clean iptables rules:");
+		LOG("    iptables -t nat -D OUTPUT -p tcp -j iosocks");
+		LOG("    iptables -t nat -F iosocks");
+		LOG("    iptables -t nat -X iosocks");
+	}
 
 	return 0;
 }
@@ -409,8 +417,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	if (geterror(w->fd) == 0)
 	{
 		// 连接成功
-		ev_io_init(&conn->w_remote_write, remote_write_cb, conn->sock_remote, EV_WRITE);
-		conn->w_remote_write.data = (void *)conn;
+		ev_io_init(&conn->w_remote_write, iosocks_send_cb, conn->sock_remote, EV_WRITE);
 		ev_io_start(EV_A_ &conn->w_remote_write);
 	}
 	else
@@ -421,6 +428,38 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 		close(conn->sock_remote);
 		mem_delete(conn);
 	}
+}
+
+static void iosocks_send_cb(EV_P_ ev_io *w, int revents)
+{
+	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn != NULL);
+
+	ev_io_stop(EV_A_ w);
+
+	ssize_t n = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
+	if (n != conn->tx_bytes)
+	{
+		if (n < 0)
+		{
+			ERR("send");
+		}
+		close(conn->sock_local);
+		close(conn->sock_remote);
+		mem_delete(conn);
+		return;
+	}
+
+	ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
+	ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
+	ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
+	ev_io_init(&conn->w_remote_write, remote_write_cb, conn->sock_remote, EV_WRITE);
+	conn->w_local_read.data = (void *)conn;
+	conn->w_local_write.data = (void *)conn;
+	conn->w_remote_read.data = (void *)conn;
+	ev_io_start(EV_A_ &conn->w_local_read);
+	ev_io_start(EV_A_ &conn->w_remote_read);
 }
 
 static void local_read_cb(EV_P_ ev_io *w, int revents)
@@ -552,54 +591,29 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents)
 	assert(conn != NULL);
 	assert(conn->tx_bytes > 0);
 
-	if (conn->state == CLOSED)
+	ssize_t n = send(conn->sock_remote, conn->tx_buf + conn->tx_offset, conn->tx_bytes, MSG_NOSIGNAL);
+	if (n < 0)
 	{
-		ev_io_stop(EV_A_ w);
-		ssize_t tx_bytes = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
-		if (tx_bytes != conn->tx_bytes)
+		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
 		{
-			cleanup(EV_A_ conn);
 			return;
 		}
 		else
 		{
-			conn->state = ESTAB;
-			ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
-			ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
-			ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
-			conn->w_local_read.data = (void *)conn;
-			conn->w_local_write.data = (void *)conn;
-			conn->w_remote_read.data = (void *)conn;
-			ev_io_start(EV_A_ &conn->w_local_read);
-			ev_io_start(EV_A_ &conn->w_remote_read);
+			ERR("send");
+			cleanup(EV_A_ conn);
+			return;
 		}
+	}
+	else if (n < conn->tx_bytes)
+	{
+		conn->tx_offset += n;
+		conn->tx_bytes -= n;
 	}
 	else
 	{
-		ssize_t n = send(conn->sock_remote, conn->tx_buf + conn->tx_offset, conn->tx_bytes, MSG_NOSIGNAL);
-		if (n < 0)
-		{
-			if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-			{
-				return;
-			}
-			else
-			{
-				ERR("send");
-				cleanup(EV_A_ conn);
-				return;
-			}
-		}
-		else if (n < conn->tx_bytes)
-		{
-			conn->tx_offset += n;
-			conn->tx_bytes -= n;
-		}
-		else
-		{
-			ev_io_start(EV_A_ &conn->w_local_read);
-			ev_io_stop(EV_A_ w);
-		}
+		ev_io_start(EV_A_ &conn->w_local_read);
+		ev_io_stop(EV_A_ w);
 	}
 }
 
