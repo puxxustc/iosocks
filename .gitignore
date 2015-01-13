@@ -8,8 +8,8 @@ config.status
 
 *.o
 *.tar.gz
-isocks
-osocks
+ioserver
+ioclient
 iodns
 ioredir
 

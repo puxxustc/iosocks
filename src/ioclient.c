@@ -56,14 +56,11 @@
 typedef enum
 {
 	CLOSED = 0,
-	NEGO_RCVD,
-	NEGO_ERR,
-	NEGO_SENT,
+	HELLO_RCVD,
+	HELLO_ERR,
+	HELLO_SENT,
 	CMD_RCVD,
 	CMD_ERR,
-	CONNECTED,
-	REQ_SENT,
-	REQ_ERR,
 	ESTAB,
 	CLOSE_WAIT
 } state_t;
@@ -91,12 +88,15 @@ typedef struct
 static void help(void);
 static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
+static void socks5_recv_cb(EV_P_ ev_io *w, int revents);
+static void socks5_send_cb(EV_P_ ev_io *w, int revents);
 static void connect_cb(EV_P_ ev_io *w, int revents);
+static void iosocks_send_cb(EV_P_ ev_io *w, int revents);
+static void closewait_cb(EV_P_ ev_timer *w, int revents);
 static void local_read_cb(EV_P_ ev_io *w, int revents);
 static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
 static void remote_write_cb(EV_P_ ev_io *w, int revents);
-static void closewait_cb(EV_P_ ev_timer *w, int revents);
 static void cleanup(EV_P_ conn_t *conn);
 
 // 配置信息
@@ -279,6 +279,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 		LOG("out of memory");
 		return;
 	}
+
 	conn->sock_local = accept(w->fd, NULL, NULL);
 	if (conn->sock_local < 0)
 	{
@@ -289,47 +290,47 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	setnonblock(conn->sock_local);
 	settimeout(conn->sock_local);
 	setkeepalive(conn->sock_remote);
+
 	conn->state = CLOSED;
-	ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
-	ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
+	ev_io_init(&conn->w_local_read, socks5_recv_cb, conn->sock_local, EV_READ);
+	ev_io_init(&conn->w_local_write, socks5_send_cb, conn->sock_local, EV_WRITE);
 	conn->w_local_read.data = (void *)conn;
 	conn->w_local_write.data = (void *)conn;
+
 	ev_io_start(EV_A_ &conn->w_local_read);
 }
 
-static void local_read_cb(EV_P_ ev_io *w, int revents)
+static void socks5_recv_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
 
-	if (conn->state != ESTAB)
+	ev_io_stop(EV_A_ w);
+
+	bzero(conn->rx_buf, 263);
+	ssize_t n = recv(conn->sock_local, conn->rx_buf, BUF_SIZE, 0);
+	if (n <= 0)
 	{
-		ev_io_stop(EV_A_ w);
+		if (n < 0)
+		{
+			LOG("client reset");
+		}
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
 	}
 
 	switch (conn->state)
 	{
 	case CLOSED:
 	{
-		// SOCKS5 协商请求
+		// SOCKS5 HELLO
 		// +-----+----------+----------+
 		// | VER | NMETHODS | METHODS  |
 		// +-----+----------+----------+
 		// |  1  |    1     | 1 to 255 |
 		// +-----+----------+----------+
-		bzero(conn->rx_buf, 257);
-		ssize_t rx_bytes = recv(conn->sock_local, conn->rx_buf, BUF_SIZE, 0);
-		if (rx_bytes <= 0)
-		{
-			if (rx_bytes < 0)
-			{
-				LOG("client reset");
-			}
-			close(conn->sock_local);
-			mem_delete(conn);
-			return;
-		}
 		int error = 0;
 		if (conn->rx_buf[0] != 0x05)
 		{
@@ -348,44 +349,32 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 		{
 			error = 2;
 		}
-		// SOCKS 协商回应
+		// SOCKS5 HELLO
 		// +-----+--------+
 		// | VER | METHOD |
 		// +-----+--------+
 		// |  1  |   1    |
 		// +-----+--------+
-		conn->tx_buf[0] = 0x05;
-		conn->tx_buf[1] = 0x00;
-		conn->tx_bytes = 2;
-		conn->state = NEGO_RCVD;
+		conn->rx_buf[0] = 0x05;
+		conn->rx_buf[1] = 0x00;
+		conn->rx_bytes = 2;
+		conn->state = HELLO_RCVD;
 		if (error != 0)
 		{
-			conn->state = NEGO_ERR;
+			conn->state = HELLO_ERR;
 			conn->tx_buf[1] = 0xff;
 		}
 		ev_io_start(EV_A_ &conn->w_local_write);
 		break;
 	}
-	case NEGO_SENT:
+	case HELLO_SENT:
 	{
-		// SOCKS5 命令请求
+		// SOCKS5 REQUEST
 		// +-----+-----+-------+------+----------+----------+
 		// | VER | CMD |  RSV  | ATYP | DST.ADDR | DST.PORT |
 		// +-----+-----+-------+------+----------+----------+
 		// |  1  |  1  | X'00' |  1   | Variable |    2     |
 		// +-----+-----+-------+------+----------+----------+
-		bzero(conn->rx_buf, 263);
-		ssize_t rx_bytes = recv(conn->sock_local, conn->rx_buf, BUF_SIZE, 0);
-		if (rx_bytes <= 0)
-		{
-			if (rx_bytes < 0)
-			{
-				LOG("client reset");
-			}
-			close(conn->sock_local);
-			mem_delete(conn);
-			return;
-		}
 		int error = 0;
 		if (conn->rx_buf[0] != 0x05)
 		{
@@ -428,6 +417,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			rand_bytes(&index, sizeof(unsigned int));
 			index %= (unsigned int)conf.server_num;
 			LOG("connect %s:%s via %s:%s", host, port, conf.server[index].address, conf.server[index].port);
+
 			// IoSocks Request
 			// +-------+------+------+------+
 			// | MAGIC | HOST | PORT |  IV  |
@@ -449,6 +439,7 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			strcpy((char *)conn->tx_buf + 261, port);
 			io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
 			conn->tx_bytes = 512;
+
 			// 建立远程连接
 			conn->sock_remote = socket(servers[index].addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
 			if (conn->sock_remote < 0)
@@ -461,80 +452,41 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 			setnonblock(conn->sock_remote);
 			settimeout(conn->sock_remote);
 			setkeepalive(conn->sock_remote);
-			ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
-			conn->w_remote_write.data = (void *)conn;
-			ev_io_start(EV_A_ &conn->w_remote_write);
 			conn->state = CMD_RCVD;
 			connect(conn->sock_remote, (struct sockaddr *)&servers[index].addr, servers[index].addrlen);
 		}
+		// SOCKS5 REPLY
+		// +-----+-----+-------+------+----------+----------+
+		// | VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
+		// +-----+-----+-------+------+----------+----------+
+		// |  1  |  1  | X'00' |  1   | Variable |    2     |
+		// +-----+-----+-------+------+----------+----------+
+		bzero(conn->rx_buf, 10);
+		conn->rx_buf[0] = 0x05;
+		if (error == 0)
+		{
+			conn->rx_buf[1] = 0x00;
+		}
+		else if (error == 1)
+		{
+			conn->rx_buf[1] = 0x01;
+		}
+		else if (error == 2)
+		{
+			conn->rx_buf[1] = 0x07;
+		}
 		else
 		{
-			// SOCKS5 命令应答
-			// +-----+-----+-------+------+----------+----------+
-			// | VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
-			// +-----+-----+-------+------+----------+----------+
-			// |  1  |  1  | X'00' |  1   | Variable |    2     |
-			// +-----+-----+-------+------+----------+----------+
-			bzero(conn->tx_buf, 10);
-			conn->tx_buf[0] = 0x05;
-			if (error == 2)
-			{
-				conn->tx_buf[1] = 0x07;
-			}
-			else if (error == 3)
-			{
-				conn->tx_buf[1] = 0x08;
-			}
-			else
-			{
-				conn->tx_buf[1] = 0x01;
-			}
-			conn->tx_buf[2] = 0x00;
-			conn->tx_buf[3] = 0x01;
-			conn->tx_bytes = 10;
+			conn->rx_buf[1] = 0x08;
+		}
+		conn->rx_buf[2] = 0x00;
+		conn->rx_buf[3] = 0x01;
+		conn->rx_bytes = 10;
+		if (error != 0)
+		{
 			conn->state = CMD_ERR;
-			ev_io_start(EV_A_ &conn->w_local_write);
 		}
-		break;
-	}
-	case ESTAB:
-	{
-		conn->tx_bytes = recv(conn->sock_local, conn->tx_buf, BUF_SIZE, 0);
-		if (conn->tx_bytes <= 0)
-		{
-			if (conn->tx_bytes < 0)
-			{
-				LOG("client reset");
-			}
-			cleanup(EV_A_ conn);
-			return;
-		}
-		io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
-		ssize_t n = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
-		if (n < 0)
-		{
-			if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-			{
-				conn->tx_offset = 0;
-			}
-			else
-			{
-				ERR("send");
-				cleanup(EV_A_ conn);
-				return;
-			}
-		}
-		else if (n < conn->tx_bytes)
-		{
-			conn->tx_offset = n;
-			conn->tx_bytes -= n;
-		}
-		else
-		{
-			return;
-		}
-		ev_io_start(EV_A_ &conn->w_remote_write);
-		ev_io_stop(EV_A_ w);
+		ev_io_start(EV_A_ &conn->w_local_write);
 		break;
 	}
 	default:
@@ -546,36 +498,34 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	}
 }
 
-static void local_write_cb(EV_P_ ev_io *w, int revents)
+static void socks5_send_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)w->data;
 
 	assert(conn != NULL);
 
-	if (conn->state != ESTAB)
+	ev_io_stop(EV_A_ w);
+
+	ssize_t n = send(conn->sock_local, conn->rx_buf, conn->rx_bytes, MSG_NOSIGNAL);
+	if (n != conn->rx_bytes)
 	{
-		ev_io_stop(EV_A_ w);
+		if (n < 0)
+		{
+			ERR("send");
+		}
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
 	}
 
 	switch (conn->state)
 	{
-	case NEGO_RCVD:
-	case NEGO_ERR:
+	case HELLO_RCVD:
+	case HELLO_ERR:
 	{
-		ssize_t tx_bytes = send(conn->sock_local, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
-		if (tx_bytes != conn->tx_bytes)
+		if (conn->state == HELLO_RCVD)
 		{
-			if (tx_bytes < 0)
-			{
-				ERR("send");
-			}
-			close(conn->sock_local);
-			mem_delete(conn);
-			return;
-		}
-		if (conn->state == NEGO_RCVD)
-		{
-			conn->state = NEGO_SENT;
+			conn->state = HELLO_SENT;
 			ev_io_start(EV_A_ &conn->w_local_read);
 		}
 		else
@@ -595,28 +545,14 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 		}
 		break;
 	}
+	case CMD_RCVD:
 	case CMD_ERR:
-	case REQ_ERR:
-	case REQ_SENT:
 	{
-		ssize_t tx_bytes = send(conn->sock_local, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
-		if (tx_bytes != conn->tx_bytes)
+		if (conn->state == CMD_RCVD)
 		{
-			if (tx_bytes < 0)
-			{
-				ERR("send");
-			}
-			close(conn->sock_local);
-			mem_delete(conn);
-			return;
-		}
-		if (conn->state == REQ_SENT)
-		{
-			conn->state = ESTAB;
-			ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
-			conn->w_remote_read.data = (void *)conn;
-			ev_io_start(EV_A_ &conn->w_local_read);
-			ev_io_start(EV_A_ &conn->w_remote_read);
+			ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
+			conn->w_remote_write.data = (void *)conn;
+			ev_io_start(EV_A_ &conn->w_remote_write);
 		}
 		else
 		{
@@ -632,35 +568,6 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 			ev_timer_init(w_timer, closewait_cb, 1.0, 0);
 			w_timer->data = (void *)conn;
 			ev_timer_start(EV_A_ w_timer);
-		}
-		break;
-	}
-	case ESTAB:
-	{
-		assert(conn->rx_bytes > 0);
-		ssize_t n = send(conn->sock_local, conn->rx_buf + conn->rx_offset, conn->rx_bytes, MSG_NOSIGNAL);
-		if (n < 0)
-		{
-			if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-			{
-				return;
-			}
-			else
-			{
-				ERR("send");
-				cleanup(EV_A_ conn);
-				return;
-			}
-		}
-		else if (n < conn->rx_bytes)
-		{
-			conn->rx_offset += n;
-			conn->rx_bytes -= n;
-		}
-		else
-		{
-			ev_io_start(EV_A_ &conn->w_remote_read);
-			ev_io_stop(EV_A_ w);
 		}
 		break;
 	}
@@ -670,6 +577,151 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 		assert(0 != 0);
 		break;
 	}
+	}
+}
+
+static void connect_cb(EV_P_ ev_io *w, int revents)
+{
+	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn != NULL);
+	assert(conn->state == CMD_RCVD);
+
+	ev_io_stop(EV_A_ w);
+
+	if (geterror(w->fd) == 0)
+	{
+		ev_io_init(&conn->w_remote_write, iosocks_send_cb, conn->sock_remote, EV_WRITE);
+		ev_io_start(EV_A_ &conn->w_remote_write);
+	}
+	else
+	{
+		LOG("connect to ioserver failed");
+		close(conn->sock_local);
+		mem_delete(conn);
+	}
+}
+
+static void iosocks_send_cb(EV_P_ ev_io *w, int revents)
+{
+	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn != NULL);
+	assert(conn->state == CMD_RCVD);
+
+	ev_io_stop(EV_A_ w);
+
+	ssize_t n = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
+	if (n != conn->tx_bytes)
+	{
+		if (n < 0)
+		{
+			ERR("send");
+		}
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
+	}
+
+	conn->state = ESTAB;
+	ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
+	ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
+	ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
+	ev_io_init(&conn->w_remote_write, remote_write_cb, conn->sock_remote, EV_WRITE);
+	conn->w_remote_read.data = (void *)conn;
+	ev_io_start(EV_A_ &conn->w_local_read);
+	ev_io_start(EV_A_ &conn->w_remote_read);
+}
+
+static void closewait_cb(EV_P_ ev_timer *w, int revents)
+{
+	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn != NULL);
+	assert(conn->state == CLOSE_WAIT);
+
+	ev_timer_stop(EV_A_ w);
+	close(conn->sock_local);
+	mem_delete(w);
+	mem_delete(conn);
+}
+
+static void local_read_cb(EV_P_ ev_io *w, int revents)
+{
+	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn != NULL);
+	assert(conn->state == ESTAB);
+
+	conn->tx_bytes = recv(conn->sock_local, conn->tx_buf, BUF_SIZE, 0);
+	if (conn->tx_bytes <= 0)
+	{
+		if (conn->tx_bytes < 0)
+		{
+			LOG("client reset");
+		}
+		cleanup(EV_A_ conn);
+		return;
+	}
+	io_encrypt(conn->tx_buf, conn->tx_bytes, &conn->enc_evp);
+	ssize_t n = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
+	if (n < 0)
+	{
+		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+		{
+			conn->tx_offset = 0;
+		}
+		else
+		{
+			ERR("send");
+			cleanup(EV_A_ conn);
+			return;
+		}
+	}
+	else if (n < conn->tx_bytes)
+	{
+		conn->tx_offset = n;
+		conn->tx_bytes -= n;
+	}
+	else
+	{
+		return;
+	}
+	ev_io_start(EV_A_ &conn->w_remote_write);
+	ev_io_stop(EV_A_ w);
+}
+
+static void local_write_cb(EV_P_ ev_io *w, int revents)
+{
+	conn_t *conn = (conn_t *)(w->data);
+
+	assert(conn != NULL);
+	assert(conn->state == ESTAB);
+	assert(conn->rx_bytes > 0);
+
+	ssize_t n = send(conn->sock_local, conn->rx_buf + conn->rx_offset, conn->rx_bytes, MSG_NOSIGNAL);
+	if (n < 0)
+	{
+		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+		{
+			return;
+		}
+		else
+		{
+			ERR("send");
+			cleanup(EV_A_ conn);
+			return;
+		}
+	}
+	else if (n < conn->rx_bytes)
+	{
+		conn->rx_offset += n;
+		conn->rx_bytes -= n;
+	}
+	else
+	{
+		ev_io_start(EV_A_ &conn->w_remote_read);
+		ev_io_stop(EV_A_ w);
 	}
 }
 
@@ -723,124 +775,35 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents)
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
-
-	if (conn->state != ESTAB)
-	{
-		ev_io_stop(EV_A_ w);
-	}
-
-	switch (conn->state)
-	{
-	case CONNECTED:
-	{
-		ssize_t tx_bytes = send(conn->sock_remote, conn->tx_buf, conn->tx_bytes, MSG_NOSIGNAL);
-		if (tx_bytes != conn->tx_bytes)
-		{
-			cleanup(EV_A_ conn);
-			return;
-		}
-		conn->state = REQ_SENT;
-		// SOCKS5 命令应答
-		// +----+-----+-------+------+----------+----------+
-		// |VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
-		// +----+-----+-------+------+----------+----------+
-		// | 1  |  1  | X'00' |  1   | Variable |    2     |
-		// +----+-----+-------+------+----------+----------+
-		bzero(conn->tx_buf, 10);
-		conn->tx_buf[0] = 0x05;
-		conn->tx_buf[1] = 0x00;
-		conn->tx_buf[2] = 0x00;
-		conn->tx_buf[3] = 0x01;
-		conn->tx_bytes = 10;
-		ev_io_start(EV_A_ &conn->w_local_write);
-		break;
-	}
-	case ESTAB:
-	{
-		assert(conn->tx_bytes > 0);
-		ssize_t n = send(conn->sock_remote, conn->tx_buf + conn->tx_offset, conn->tx_bytes, MSG_NOSIGNAL);
-		if (n < 0)
-		{
-			if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-			{
-				return;
-			}
-			else
-			{
-				ERR("send");
-				cleanup(EV_A_ conn);
-				return;
-			}
-		}
-		else if (n < conn->tx_bytes)
-		{
-			conn->tx_offset += n;
-			conn->tx_bytes -= n;
-		}
-		else
-		{
-			ev_io_start(EV_A_ &conn->w_local_read);
-			ev_io_stop(EV_A_ w);
-		}
-		break;
-	}
-	default:
-	{
-		// 不应该来到这里
-		assert(0 != 0);
-		break;
-	}
-	}
-}
-
-static void connect_cb(EV_P_ ev_io *w, int revents)
-{
-	conn_t *conn = (conn_t *)(w->data);
-
-	assert(conn != NULL);
-	assert(conn->state == CMD_RCVD);
+	assert(conn->state == ESTAB);
+	assert(conn->tx_bytes > 0);
 
 	ev_io_stop(EV_A_ w);
 
-	if (geterror(w->fd) == 0)
+	ssize_t n = send(conn->sock_remote, conn->tx_buf + conn->tx_offset, conn->tx_bytes, MSG_NOSIGNAL);
+	if (n < 0)
 	{
-		conn->state = CONNECTED;
-		ev_io_init(&conn->w_remote_write, remote_write_cb, conn->sock_remote, EV_WRITE);
-		conn->w_remote_write.data = (void *)conn;
-		ev_io_start(EV_A_ &conn->w_remote_write);
+		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+		{
+			return;
+		}
+		else
+		{
+			ERR("send");
+			cleanup(EV_A_ conn);
+			return;
+		}
+	}
+	else if (n < conn->tx_bytes)
+	{
+		conn->tx_offset += n;
+		conn->tx_bytes -= n;
 	}
 	else
 	{
-		LOG("connect to ioserver failed");
-		// 命令应答格式
-		// +-----+-----+-------+------+----------+----------+
-		// | VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
-		// +-----+-----+-------+------+----------+----------+
-		// |  1  |  1  | X'00' |  1   | Variable |    2     |
-		// +-----+-----+-------+------+----------+----------+
-		bzero(conn->tx_buf, 10);
-		conn->tx_buf[0] = 0x05;
-		conn->tx_buf[1] = 0x05;
-		conn->tx_buf[2] = 0x00;
-		conn->tx_buf[3] = 0x01;
-		conn->tx_bytes = 10;
-		conn->state = REQ_ERR;
-		close(conn->sock_remote);
-		ev_io_start(EV_A_ &conn->w_local_write);
+		ev_io_start(EV_A_ &conn->w_local_read);
+		ev_io_stop(EV_A_ w);
 	}
-}
-
-static void closewait_cb(EV_P_ ev_timer *w, int revents)
-{
-	conn_t *conn = (conn_t *)(w->data);
-
-	assert(conn != NULL);
-	assert(conn->state == CLOSE_WAIT);
-
-	ev_timer_stop(EV_A_ w);
-	close(conn->sock_local);
-	mem_delete(w);
-	mem_delete(conn);
 }
 
 static void cleanup(EV_P_ conn_t *conn)
