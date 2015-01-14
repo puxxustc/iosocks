@@ -43,6 +43,9 @@
 // 缓冲区大小
 #define BUF_SIZE 8192
 
+// 最大连接尝试次数
+#define MAX_TRY 4
+
 // 魔数
 #define MAGIC 0x526f6e61
 
@@ -52,13 +55,6 @@
 #ifndef EWOULDBLOCK
 #define EWOULDBLOCK EAGAIN
 #endif
-
-// 连接状态
-typedef enum
-{
-	CLOSED = 0,
-	ESTAB
-} state_t;
 
 // 连接控制块结构
 typedef struct
@@ -73,7 +69,10 @@ typedef struct
 	ssize_t tx_offset;
 	int sock_local;
 	int sock_remote;
-	state_t state;
+	int server_id;
+	int server_tried;
+	char dst_addr[257];
+	char dst_port[15];
 	enc_evp_t enc_evp;
 	uint8_t rx_buf[BUF_SIZE];
 	uint8_t tx_buf[BUF_SIZE];
@@ -89,6 +88,8 @@ static void local_read_cb(EV_P_ ev_io *w, int revents);
 static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
 static void remote_write_cb(EV_P_ ev_io *w, int revents);
+static int  select_server(void);
+static void connect_server(EV_P_ conn_t *conn);
 static void cleanup(EV_P_ conn_t *conn);
 
 // 配置信息
@@ -101,6 +102,7 @@ struct
 	socklen_t addrlen;
 	char *key;
 	size_t key_len;
+	int health;		// 0 可用，<0 不可用
 } servers[MAX_SERVER];
 
 int main(int argc, char **argv)
@@ -159,6 +161,7 @@ int main(int argc, char **argv)
 	struct addrinfo *res;
 	for (int i = 0; i < conf.server_num; i++)
 	{
+		servers[i].health = 0;
 		servers[i].key = conf.server[i].key;
 		servers[i].key_len = strlen(servers[i].key);
 		if (servers[i].key_len > 256)
@@ -337,12 +340,10 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	setnonblock(conn->sock_local);
 	settimeout(conn->sock_local);
 	setkeepalive(conn->sock_local);
-	conn->state = CLOSED;
 
 	// 获取原始地址
 	struct sockaddr_storage addr;
 	socklen_t addrlen = sizeof(struct sockaddr_storage);
-	char host[257], port[15];
 	if (getdestaddr(conn->sock_local, (struct sockaddr *)&addr, &addrlen) != 0)
 	{
 		ERR("getdestaddr");
@@ -352,58 +353,18 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	}
 	if (addr.ss_family == AF_INET)
 	{
-		inet_ntop(AF_INET, &(((struct sockaddr_in *)&addr)->sin_addr), host, INET_ADDRSTRLEN);
-		sprintf(port, "%u", ntohs(((struct sockaddr_in *)&addr)->sin_port));
+		inet_ntop(AF_INET, &(((struct sockaddr_in *)&addr)->sin_addr), conn->dst_addr, INET_ADDRSTRLEN);
+		sprintf(conn->dst_port, "%u", ntohs(((struct sockaddr_in *)&addr)->sin_port));
 	}
 	else
 	{
-		inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&addr)->sin6_addr), host, INET6_ADDRSTRLEN);
-		sprintf(port, "%u", ntohs(((struct sockaddr_in6 *)&addr)->sin6_port));
+		inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&addr)->sin6_addr), conn->dst_addr, INET6_ADDRSTRLEN);
+		sprintf(conn->dst_port, "%u", ntohs(((struct sockaddr_in6 *)&addr)->sin6_port));
 	}
 
-	// 随机选择一个 server
-	unsigned int index;
-	rand_bytes(&index, sizeof(unsigned int));
-	index %= (unsigned int)conf.server_num;
-	LOG("connect %s:%s via %s:%s", host, port, conf.server[index].address, conf.server[index].port);
-
-	// IoSocks Request
-	// +-------+------+------+------+
-	// | MAGIC | HOST | PORT |  IV  |
-	// +-------+------+------+------+
-	// |   4   | 257  |  15  | 236  |
-	// +-------+------+------+------+
-	uint8_t key[64];
-	rand_bytes(conn->rx_buf, 236);
-	memcpy(conn->rx_buf + 236, servers[index].key, servers[index].key_len);
-	md5(conn->rx_buf, 236 + servers[index].key_len, key);
-	md5(key, 16, key + 16);
-	md5(key, 32, key + 32);
-	md5(key, 48, key + 48);
-	enc_init(&conn->enc_evp, enc_rc4, key, 64);
-	memcpy(conn->tx_buf + 276, conn->rx_buf, 236);
-	bzero(conn->tx_buf, 276);
-	*((uint32_t *)(conn->tx_buf)) = htonl(MAGIC);
-	strcpy((char *)conn->tx_buf + 4, host);
-	strcpy((char *)conn->tx_buf + 261, port);
-	io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
-	conn->tx_bytes = 512;
-	// 建立远程连接
-	conn->sock_remote = socket(servers[index].addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
-	if (conn->sock_remote < 0)
-	{
-		ERR("socket");
-		close(conn->sock_local);
-		mem_delete(conn);
-		return;
-	}
-	setnonblock(conn->sock_remote);
-	settimeout(conn->sock_remote);
-	setkeepalive(conn->sock_remote);
-	ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
-	conn->w_remote_write.data = (void *)conn;
-	ev_io_start(EV_A_ &conn->w_remote_write);
-	connect(conn->sock_remote, (struct sockaddr *)&servers[index].addr, servers[index].addrlen);
+	// 连接 iosocks server
+	conn->server_tried = 0;
+	connect_server(EV_A_ conn);
 }
 
 static void connect_cb(EV_P_ ev_io *w, int revents)
@@ -422,11 +383,20 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	}
 	else
 	{
-		// 连接失败
-		LOG("connect to ioserver failed");
-		close(conn->sock_local);
-		close(conn->sock_remote);
-		mem_delete(conn);
+		servers[conn->server_id].health = -10;
+		if (conn->server_tried < MAX_TRY)
+		{
+			LOG("connect to ioserver failed, try again");
+			close(conn->sock_remote);
+			connect_server(EV_A_ conn);
+		}
+		else
+		{
+			LOG("connect to ioserver failed, abort");
+			close(conn->sock_local);
+			close(conn->sock_remote);
+			mem_delete(conn);
+		}
 	}
 }
 
@@ -505,7 +475,6 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 	ev_io_start(EV_A_ &conn->w_remote_write);
 	ev_io_stop(EV_A_ w);
 }
-
 
 static void local_write_cb(EV_P_ ev_io *w, int revents)
 {
@@ -615,6 +584,78 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents)
 		ev_io_start(EV_A_ &conn->w_local_read);
 		ev_io_stop(EV_A_ w);
 	}
+}
+
+static int select_server(void)
+{
+	unsigned char rand_num;
+	int id;
+
+	while (1)
+	{
+		rand_bytes(&rand_num, sizeof(unsigned char));
+		id = (int)rand_num % conf.server_num;
+		if (servers[id].health >= 0)
+		{
+			return id;
+		}
+		else
+		{
+			servers[id].health++;
+		}
+	}
+}
+
+static void connect_server(EV_P_ conn_t *conn)
+{
+	// 随机选择一个 server
+	conn->server_id = select_server();
+	conn->server_tried++;
+	LOG("connect %s:%s via %s:%s",
+	    conn->dst_addr, conn->dst_port,
+	    conf.server[conn->server_id].address,
+	    conf.server[conn->server_id].port);
+
+	// IoSocks Request
+	// +-------+------+------+------+
+	// | MAGIC | HOST | PORT |  IV  |
+	// +-------+------+------+------+
+	// |   4   | 257  |  15  | 236  |
+	// +-------+------+------+------+
+	uint8_t key[64];
+	rand_bytes(conn->rx_buf, 236);
+	memcpy(conn->rx_buf + 236, servers[conn->server_id].key, servers[conn->server_id].key_len);
+	md5(conn->rx_buf, 236 + servers[conn->server_id].key_len, key);
+	md5(key, 16, key + 16);
+	md5(key, 32, key + 32);
+	md5(key, 48, key + 48);
+	bzero(conn->tx_buf, 276);
+	*((uint32_t *)(conn->tx_buf)) = htonl(MAGIC);
+	strcpy((char *)conn->tx_buf + 4, conn->dst_addr);
+	strcpy((char *)conn->tx_buf + 261, conn->dst_port);
+	memcpy(conn->tx_buf + 276, conn->rx_buf, 236);
+	enc_init(&conn->enc_evp, enc_rc4, key, 64);
+	io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
+	conn->tx_bytes = 512;
+
+	// 建立远程连接
+	conn->sock_remote = socket(servers[conn->server_id].addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
+	if (conn->sock_remote < 0)
+	{
+		ERR("socket");
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
+	}
+	setnonblock(conn->sock_remote);
+	settimeout(conn->sock_remote);
+	setkeepalive(conn->sock_remote);
+	connect(conn->sock_remote,
+	        (struct sockaddr *)&servers[conn->server_id].addr,
+	        servers[conn->server_id].addrlen);
+	ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
+	conn->w_remote_write.data = (void *)conn;
+	ev_io_start(EV_A_ &conn->w_remote_write);
 }
 
 static void cleanup(EV_P_ conn_t *conn)

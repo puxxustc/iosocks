@@ -42,6 +42,9 @@
 // 缓冲区大小
 #define BUF_SIZE 8192
 
+// 最大连接尝试次数
+#define MAX_TRY 4
+
 // 魔数
 #define MAGIC 0x526f6e61
 
@@ -59,8 +62,8 @@ typedef enum
 	HELLO_RCVD,
 	HELLO_ERR,
 	HELLO_SENT,
-	CMD_RCVD,
-	CMD_ERR,
+	REQ_RCVD,
+	REQ_ERR,
 	ESTAB,
 	CLOSE_WAIT
 } state_t;
@@ -79,6 +82,10 @@ typedef struct
 	int sock_local;
 	int sock_remote;
 	state_t state;
+	int server_id;
+	int server_tried;
+	char dst_addr[257];
+	char dst_port[15];
 	enc_evp_t enc_evp;
 	uint8_t rx_buf[BUF_SIZE];
 	uint8_t tx_buf[BUF_SIZE];
@@ -97,6 +104,8 @@ static void local_read_cb(EV_P_ ev_io *w, int revents);
 static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
 static void remote_write_cb(EV_P_ ev_io *w, int revents);
+static int  select_server(void);
+static void connect_server(EV_P_ conn_t *conn);
 static void cleanup(EV_P_ conn_t *conn);
 
 // 配置信息
@@ -109,6 +118,7 @@ struct
 	socklen_t addrlen;
 	char *key;
 	size_t key_len;
+	int health;		// 0 可用，<0 不可用
 } servers[MAX_SERVER];
 
 int main(int argc, char **argv)
@@ -167,6 +177,7 @@ int main(int argc, char **argv)
 	struct addrinfo *res;
 	for (int i = 0; i < conf.server_num; i++)
 	{
+		servers[i].health = 0;
 		servers[i].key = conf.server[i].key;
 		servers[i].key_len = strlen(servers[i].key);
 		if (servers[i].key_len > 256)
@@ -179,7 +190,7 @@ int main(int argc, char **argv)
 		hints.ai_socktype = SOCK_STREAM;
 		if (getaddrinfo(conf.server[i].address, conf.server[i].port, &hints, &res) != 0)
 		{
-			LOG("wrong server_host/server_port");
+			LOG("failed to resolv %s:%s", conf.server[i].address, conf.server[i].port);
 			return 2;
 		}
 		memcpy(&servers[i].addr, res->ai_addr, res->ai_addrlen);
@@ -211,7 +222,7 @@ int main(int argc, char **argv)
 	hints.ai_socktype = SOCK_STREAM;
 	if (getaddrinfo(conf.local.address, conf.local.port, &hints, &res) != 0)
 	{
-		LOG("wrong local_host/local_port");
+		LOG("failed to resolv %s:%s", conf.local.address, conf.local.port);
 		return 2;
 	}
 	int sock_listen = socket(res->ai_family, SOCK_STREAM, IPPROTO_TCP);
@@ -385,76 +396,31 @@ static void socks5_recv_cb(EV_P_ ev_io *w, int revents)
 			// 只支持 CONNECT 命令
 			error = 2;
 		}
-		char host[257], port[15];
 		if (conn->rx_buf[3] == 0x01)
 		{
 			// IPv4 地址
-			inet_ntop(AF_INET, (const void *)(conn->rx_buf + 4), host, INET_ADDRSTRLEN);
-			sprintf(port, "%u", ntohs(*(uint16_t *)(conn->rx_buf + 8)));
+			inet_ntop(AF_INET, (const void *)(conn->rx_buf + 4), conn->dst_addr, INET_ADDRSTRLEN);
+			sprintf(conn->dst_port, "%u", ntohs(*(uint16_t *)(conn->rx_buf + 8)));
 		}
 		else if (conn->rx_buf[3] == 0x03)
 		{
 			// 域名
-			memcpy(host, conn->rx_buf + 5, conn->rx_buf[4]);
-			host[conn->rx_buf[4]] = '\0';
-			sprintf(port, "%u", ntohs(*(uint16_t *)(conn->rx_buf + conn->rx_buf[4] + 5)));
+			memcpy(conn->dst_addr, conn->rx_buf + 5, conn->rx_buf[4]);
+			conn->dst_addr[conn->rx_buf[4]] = '\0';
+			sprintf(conn->dst_port, "%u", ntohs(*(uint16_t *)(conn->rx_buf + conn->rx_buf[4] + 5)));
 		}
 		else if (conn->rx_buf[3] == 0x04)
 		{
 			// IPv6 地址
-			inet_ntop(AF_INET6, (const void *)(conn->rx_buf + 4), host, INET6_ADDRSTRLEN);
-			sprintf(port, "%u", ntohs(*(uint16_t *)(conn->rx_buf + 20)));
+			inet_ntop(AF_INET6, (const void *)(conn->rx_buf + 4), conn->dst_addr, INET6_ADDRSTRLEN);
+			sprintf(conn->dst_port, "%u", ntohs(*(uint16_t *)(conn->rx_buf + 20)));
 		}
 		else
 		{
 			// 不支持的地址类型
 			error = 3;
 		}
-		if (error == 0)
-		{
-			// 随机选择一个 server
-			unsigned int index;
-			rand_bytes(&index, sizeof(unsigned int));
-			index %= (unsigned int)conf.server_num;
-			LOG("connect %s:%s via %s:%s", host, port, conf.server[index].address, conf.server[index].port);
 
-			// IoSocks Request
-			// +-------+------+------+------+
-			// | MAGIC | HOST | PORT |  IV  |
-			// +-------+------+------+------+
-			// |   4   | 257  |  15  | 236  |
-			// +-------+------+------+------+
-			uint8_t key[64];
-			rand_bytes(conn->rx_buf, 236);
-			memcpy(conn->rx_buf + 236, servers[index].key, servers[index].key_len);
-			md5(conn->rx_buf, 236 + servers[index].key_len, key);
-			md5(key, 16, key + 16);
-			md5(key, 32, key + 32);
-			md5(key, 48, key + 48);
-			enc_init(&conn->enc_evp, enc_rc4, key, 64);
-			memcpy(conn->tx_buf + 276, conn->rx_buf, 236);
-			bzero(conn->tx_buf, 276);
-			*((uint32_t *)(conn->tx_buf)) = htonl(MAGIC);
-			strcpy((char *)conn->tx_buf + 4, host);
-			strcpy((char *)conn->tx_buf + 261, port);
-			io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
-			conn->tx_bytes = 512;
-
-			// 建立远程连接
-			conn->sock_remote = socket(servers[index].addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
-			if (conn->sock_remote < 0)
-			{
-				ERR("socket");
-				close(conn->sock_local);
-				mem_delete(conn);
-				return;
-			}
-			setnonblock(conn->sock_remote);
-			settimeout(conn->sock_remote);
-			setkeepalive(conn->sock_remote);
-			conn->state = CMD_RCVD;
-			connect(conn->sock_remote, (struct sockaddr *)&servers[index].addr, servers[index].addrlen);
-		}
 		// SOCKS5 REPLY
 		// +-----+-----+-------+------+----------+----------+
 		// | VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
@@ -482,9 +448,10 @@ static void socks5_recv_cb(EV_P_ ev_io *w, int revents)
 		conn->rx_buf[2] = 0x00;
 		conn->rx_buf[3] = 0x01;
 		conn->rx_bytes = 10;
+		conn->state = REQ_RCVD;
 		if (error != 0)
 		{
-			conn->state = CMD_ERR;
+			conn->state = REQ_ERR;
 		}
 		ev_io_start(EV_A_ &conn->w_local_write);
 		break;
@@ -506,7 +473,17 @@ static void socks5_send_cb(EV_P_ ev_io *w, int revents)
 
 	ev_io_stop(EV_A_ w);
 
-	send(conn->sock_local, conn->rx_buf, conn->rx_bytes, MSG_NOSIGNAL);
+	ssize_t n = send(conn->sock_local, conn->rx_buf, conn->rx_bytes, MSG_NOSIGNAL);
+	if (n != conn->rx_bytes)
+	{
+		if (n < 0)
+		{
+			ERR("send");
+		}
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
+	}
 
 	switch (conn->state)
 	{
@@ -535,14 +512,14 @@ static void socks5_send_cb(EV_P_ ev_io *w, int revents)
 		}
 		break;
 	}
-	case CMD_RCVD:
-	case CMD_ERR:
+	case REQ_RCVD:
+	case REQ_ERR:
 	{
-		if (conn->state == CMD_RCVD)
+		if (conn->state == REQ_RCVD)
 		{
-			ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
-			conn->w_remote_write.data = (void *)conn;
-			ev_io_start(EV_A_ &conn->w_remote_write);
+			// 连接 iosocks server
+			conn->server_tried = 0;
+			connect_server(EV_A_ conn);
 		}
 		else
 		{
@@ -575,21 +552,32 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
-	assert(conn->state == CMD_RCVD);
+	assert(conn->state == REQ_RCVD);
 
 	ev_io_stop(EV_A_ w);
 
 	if (geterror(w->fd) == 0)
 	{
+		// 连接成功
 		ev_io_init(&conn->w_remote_write, iosocks_send_cb, conn->sock_remote, EV_WRITE);
 		ev_io_start(EV_A_ &conn->w_remote_write);
 	}
 	else
 	{
-		LOG("connect to ioserver failed");
-		close(conn->sock_local);
-		close(conn->sock_remote);
-		mem_delete(conn);
+		servers[conn->server_id].health = -10;
+		if (conn->server_tried < MAX_TRY)
+		{
+			LOG("connect to ioserver failed, try again");
+			close(conn->sock_remote);
+			connect_server(EV_A_ conn);
+		}
+		else
+		{
+			LOG("connect to ioserver failed, abort");
+			close(conn->sock_local);
+			close(conn->sock_remote);
+			mem_delete(conn);
+		}
 	}
 }
 
@@ -598,7 +586,7 @@ static void iosocks_send_cb(EV_P_ ev_io *w, int revents)
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
-	assert(conn->state == CMD_RCVD);
+	assert(conn->state == REQ_RCVD);
 
 	ev_io_stop(EV_A_ w);
 
@@ -796,6 +784,78 @@ static void remote_write_cb(EV_P_ ev_io *w, int revents)
 		ev_io_start(EV_A_ &conn->w_local_read);
 		ev_io_stop(EV_A_ w);
 	}
+}
+
+static int select_server(void)
+{
+	unsigned char rand_num;
+	int id;
+
+	while (1)
+	{
+		rand_bytes(&rand_num, sizeof(unsigned char));
+		id = (int)rand_num % conf.server_num;
+		if (servers[id].health >= 0)
+		{
+			return id;
+		}
+		else
+		{
+			servers[id].health++;
+		}
+	}
+}
+
+static void connect_server(EV_P_ conn_t *conn)
+{
+	// 随机选择一个 server
+	conn->server_id = select_server();
+	conn->server_tried++;
+	LOG("connect %s:%s via %s:%s",
+	    conn->dst_addr, conn->dst_port,
+	    conf.server[conn->server_id].address,
+	    conf.server[conn->server_id].port);
+
+	// IoSocks Request
+	// +-------+------+------+------+
+	// | MAGIC | HOST | PORT |  IV  |
+	// +-------+------+------+------+
+	// |   4   | 257  |  15  | 236  |
+	// +-------+------+------+------+
+	uint8_t key[64];
+	rand_bytes(conn->rx_buf, 236);
+	memcpy(conn->rx_buf + 236, servers[conn->server_id].key, servers[conn->server_id].key_len);
+	md5(conn->rx_buf, 236 + servers[conn->server_id].key_len, key);
+	md5(key, 16, key + 16);
+	md5(key, 32, key + 32);
+	md5(key, 48, key + 48);
+	bzero(conn->tx_buf, 276);
+	*((uint32_t *)(conn->tx_buf)) = htonl(MAGIC);
+	strcpy((char *)conn->tx_buf + 4, conn->dst_addr);
+	strcpy((char *)conn->tx_buf + 261, conn->dst_port);
+	memcpy(conn->tx_buf + 276, conn->rx_buf, 236);
+	enc_init(&conn->enc_evp, enc_rc4, key, 64);
+	io_encrypt(conn->tx_buf, 276, &conn->enc_evp);
+	conn->tx_bytes = 512;
+
+	// 建立远程连接
+	conn->sock_remote = socket(servers[conn->server_id].addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
+	if (conn->sock_remote < 0)
+	{
+		ERR("socket");
+		close(conn->sock_local);
+		mem_delete(conn);
+		return;
+	}
+	setnonblock(conn->sock_remote);
+	settimeout(conn->sock_remote);
+	setkeepalive(conn->sock_remote);
+	connect(conn->sock_remote,
+	        (struct sockaddr *)&servers[conn->server_id].addr,
+	        servers[conn->server_id].addrlen);
+	ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
+	conn->w_remote_write.data = (void *)conn;
+	ev_io_start(EV_A_ &conn->w_remote_write);
 }
 
 static void cleanup(EV_P_ conn_t *conn)
