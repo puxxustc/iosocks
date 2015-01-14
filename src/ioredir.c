@@ -184,7 +184,7 @@ int main(int argc, char **argv)
 
 	// 初始化内存池
 	size_t block_size[1] = { sizeof(conn_t) };
-	size_t block_count[1] = { 64 };
+	size_t block_count[1] = { IOREDIR_CONN };
 	if (mem_init(block_size, block_count, 1) != 0)
 	{
 		LOG("memory pool error");

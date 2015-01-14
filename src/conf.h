@@ -20,7 +20,13 @@
 #ifndef CONF_H
 #define CONF_H
 
+// 最大服务器数
 #define MAX_SERVER 16
+
+#define IOSERVER_CONN	128
+#define IOCLIENT_CONN	64
+#define IOREDIR_CONN	64
+#define IODNS_CONN		16
 
 typedef struct {
 	char *user;

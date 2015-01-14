@@ -200,7 +200,7 @@ int main(int argc, char **argv)
 
 	// 初始化内存池
 	size_t block_size[2] = { sizeof(ev_timer), sizeof(conn_t) };
-	size_t block_count[2] = { 8, 64 };
+	size_t block_count[2] = { 8, IOCLIENT_CONN };
 	if (mem_init(block_size, block_count, 2) != 0)
 	{
 		LOG("memory pool error");
