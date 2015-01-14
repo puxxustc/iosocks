@@ -76,7 +76,7 @@ typedef struct
 	ssize_t rx_offset;
 	ssize_t tx_offset;
 	gai_t *gai;
-	int server_index;
+	int server_id;
 	int sock_local;
 	int sock_remote;
 	enc_evp_t enc_evp;
@@ -88,7 +88,7 @@ typedef struct
 static void help(void);
 static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
-static void req_recv_cb(EV_P_ ev_io *w, int revents);
+static void iosocks_recv_cb(EV_P_ ev_io *w, int revents);
 static void local_read_cb(EV_P_ ev_io *w, int revents);
 static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
@@ -173,9 +173,9 @@ int main(int argc, char **argv)
 	}
 
 	// 初始化内存池
-	size_t block_size[2] = { sizeof(gai_t), sizeof(conn_t)};
-	size_t block_count[2] = { 8, 64};
-	if (mem_init(block_size, block_count, 2) != 0)
+	size_t block_size[1] = { sizeof(conn_t)};
+	size_t block_count[1] = { 64};
+	if (mem_init(block_size, block_count, 1) != 0)
 	{
 		LOG("memory pool error");
 		return 2;
@@ -202,8 +202,8 @@ int main(int argc, char **argv)
 	}
 
 	// 初始化本地监听 socket
-	int sock_listen[MAX_SERVER];
-	ev_io w_listen[MAX_SERVER];
+	int sock_listen[conf.server_num];
+	ev_io w_listen[conf.server_num];
 	struct addrinfo hints;
 	struct addrinfo *res;
 	for (int i = 0; i < conf.server_num; i++)
@@ -295,13 +295,13 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	setnonblock(conn->sock_local);
 	settimeout(conn->sock_local);
 	setkeepalive(conn->sock_local);
-	conn->server_index = (int)(long)(w->data);
-	ev_io_init(&conn->w_local_read, req_recv_cb, conn->sock_local, EV_READ);
+	conn->server_id = (int)(long)(w->data);
+	ev_io_init(&conn->w_local_read, iosocks_recv_cb, conn->sock_local, EV_READ);
 	conn->w_local_read.data = (void *)conn;
 	ev_io_start(EV_A_ &conn->w_local_read);
 }
 
-static void req_recv_cb(EV_P_ ev_io *w, int revents)
+static void iosocks_recv_cb(EV_P_ ev_io *w, int revents)
 {
 	conn_t *conn = (conn_t *)(w->data);
 
@@ -329,8 +329,8 @@ static void req_recv_cb(EV_P_ ev_io *w, int revents)
 	// +-------+------+------+------+
 	uint8_t key[64];
 	memcpy(conn->rx_buf, conn->tx_buf + 276, 236);
-	memcpy(conn->rx_buf + 236, servers[conn->server_index].key, servers[conn->server_index].key_len);
-	md5(conn->rx_buf, 236 + servers[conn->server_index].key_len, key);
+	memcpy(conn->rx_buf + 236, servers[conn->server_id].key, servers[conn->server_id].key_len);
+	md5(conn->rx_buf, 236 + servers[conn->server_id].key_len, key);
 	md5(key, 16, key + 16);
 	md5(key, 32, key + 32);
 	md5(key, 48, key + 48);
@@ -348,19 +348,12 @@ static void req_recv_cb(EV_P_ ev_io *w, int revents)
 	host[256] = '\0';
 	port[14] = '\0';
 	LOG("connect %s:%s", host, port);
-	conn->gai = (gai_t *)mem_new(sizeof(gai_t));
-	if (conn->gai == NULL)
-	{
-		LOG("out of memory");
-		close(conn->sock_local);
-		mem_delete(conn);
-		return;
-	}
+	conn->gai = (gai_t *)(conn->rx_buf);
+	bzero(conn->gai, sizeof(gai_t));
 	conn->gai->hints.ai_family = AF_UNSPEC;
 	conn->gai->hints.ai_socktype = SOCK_STREAM;
 	strcpy(conn->gai->host, host);
 	strcpy(conn->gai->port, port);
-	bzero(&(conn->gai->req), sizeof(struct gaicb));
 	conn->gai->req.ar_name = conn->gai->host;
 	conn->gai->req.ar_service = conn->gai->port;
 	conn->gai->req.ar_request = &(conn->gai->hints);
@@ -377,6 +370,7 @@ static void req_recv_cb(EV_P_ ev_io *w, int revents)
 		return;
 	}
 }
+
 static void resolv_cb(int signo, siginfo_t *info, void *context)
 {
 	conn_t *conn = (conn_t *)info->si_value.sival_ptr;
@@ -389,7 +383,6 @@ static void resolv_cb(int signo, siginfo_t *info, void *context)
 		// 域名解析失败
 		LOG("can not resolv host: %s", conn->gai->host);
 		close(conn->sock_local);
-		mem_delete(conn->gai);
 		mem_delete(conn);
 	}
 	else
@@ -401,7 +394,6 @@ static void resolv_cb(int signo, siginfo_t *info, void *context)
 		{
 			ERR("socket");
 			close(conn->sock_local);
-			mem_delete(conn->gai);
 			mem_delete(conn);
 			return;
 		}
@@ -427,7 +419,6 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	{
 		// 连接成功
 		freeaddrinfo(conn->gai->req.ar_result);
-		mem_delete(conn->gai);
 		ev_io_init(&conn->w_local_read, local_read_cb, conn->sock_local, EV_READ);
 		ev_io_init(&conn->w_local_write, local_write_cb, conn->sock_local, EV_WRITE);
 		ev_io_init(&conn->w_remote_read, remote_read_cb, conn->sock_remote, EV_READ);
@@ -463,7 +454,6 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 				ERR("socket");
 				close(conn->sock_local);
 				freeaddrinfo(conn->gai->req.ar_result);
-				mem_delete(conn->gai);
 				mem_delete(conn);
 				return;
 			}
@@ -481,7 +471,6 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 			LOG("connect failed");
 			close(conn->sock_local);
 			freeaddrinfo(conn->gai->req.ar_result);
-			mem_delete(conn->gai);
 			mem_delete(conn);
 		}
 	}
