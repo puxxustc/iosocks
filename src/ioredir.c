@@ -383,6 +383,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	}
 	else
 	{
+		// 连接失败
 		servers[conn->server_id].health = -10;
 		if (conn->server_tried < MAX_TRY)
 		{
@@ -650,9 +651,30 @@ static void connect_server(EV_P_ conn_t *conn)
 	setnonblock(conn->sock_remote);
 	settimeout(conn->sock_remote);
 	setkeepalive(conn->sock_remote);
-	connect(conn->sock_remote,
+	if (connect(conn->sock_remote,
 	        (struct sockaddr *)&servers[conn->server_id].addr,
-	        servers[conn->server_id].addrlen);
+	        servers[conn->server_id].addrlen) != 0)
+	{
+		if (errno != EINPROGRESS)
+		{
+			// 连接失败
+			servers[conn->server_id].health = -10;
+			if (conn->server_tried < MAX_TRY)
+			{
+				LOG("connect to ioserver failed, try again");
+				close(conn->sock_remote);
+				connect_server(EV_A_ conn);
+			}
+			else
+			{
+				LOG("connect to ioserver failed, abort");
+				close(conn->sock_local);
+				close(conn->sock_remote);
+				mem_delete(conn);
+			}
+			return;
+		}
+	}
 	ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
 	conn->w_remote_write.data = (void *)conn;
 	ev_io_start(EV_A_ &conn->w_remote_write);
