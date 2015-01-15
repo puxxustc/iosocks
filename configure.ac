@@ -31,9 +31,12 @@ if test "${assembly}" = "true" ; then
 fi
 
 # Checks for libraries.
-AC_CHECK_LIB([anl], [getaddrinfo_a])
-AC_CHECK_LIB([resolv], [ns_initparse])
-AC_CHECK_LIB([ev], [ev_default_loop])
+ANL_LIBS="-lanl"
+RESOLV_LIBS="-lresolv"
+EV_LIBS="-lev"
+AC_CHECK_LIB([anl], [getaddrinfo_a], [AC_SUBST(ANL_LIBS)])
+AC_CHECK_LIB([resolv], [ns_initparse], [AC_SUBST(RESOLV_LIBS)])
+AC_CHECK_LIB([ev], [ev_default_loop], [AC_SUBST(EV_LIBS)])
 
 # Checks for header files.
 AC_HEADER_ASSERT

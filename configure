@@ -630,6 +630,9 @@ LIBOBJS
 EGREP
 GREP
 CPP
+EV_LIBS
+RESOLV_LIBS
+ANL_LIBS
 am__fastdepCC_FALSE
 am__fastdepCC_TRUE
 CCDEPMODE
@@ -4107,6 +4110,9 @@ $as_echo "#define USE_ASSEMBLY 1" >>confdefs.h
 fi
 
 # Checks for libraries.
+ANL_LIBS="-lanl"
+RESOLV_LIBS="-lresolv"
+EV_LIBS="-lev"
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for getaddrinfo_a in -lanl" >&5
 $as_echo_n "checking for getaddrinfo_a in -lanl... " >&6; }
@@ -4145,11 +4151,6 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_anl_getaddrinfo_a" >&5
 $as_echo "$ac_cv_lib_anl_getaddrinfo_a" >&6; }
 if test "x$ac_cv_lib_anl_getaddrinfo_a" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBANL 1
-_ACEOF
-
-  LIBS="-lanl $LIBS"
 
 fi
 
@@ -4190,11 +4191,6 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_resolv_ns_initparse" >&5
 $as_echo "$ac_cv_lib_resolv_ns_initparse" >&6; }
 if test "x$ac_cv_lib_resolv_ns_initparse" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBRESOLV 1
-_ACEOF
-
-  LIBS="-lresolv $LIBS"
 
 fi
 
@@ -4235,11 +4231,6 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ev_ev_default_loop" >&5
 $as_echo "$ac_cv_lib_ev_ev_default_loop" >&6; }
 if test "x$ac_cv_lib_ev_ev_default_loop" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBEV 1
-_ACEOF
-
-  LIBS="-lev $LIBS"
 
 fi
 

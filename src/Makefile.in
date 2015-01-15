@@ -95,22 +95,23 @@ am_ioclient_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) \
 	ioclient.$(OBJEXT) log.$(OBJEXT) md5.$(OBJEXT) mem.$(OBJEXT) \
 	rc4.$(OBJEXT) utils.$(OBJEXT)
 ioclient_OBJECTS = $(am_ioclient_OBJECTS)
-ioclient_LDADD = $(LDADD)
+am__DEPENDENCIES_1 =
+ioclient_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_iodns_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) iodns.$(OBJEXT) \
 	log.$(OBJEXT) md5.$(OBJEXT) mem.$(OBJEXT) rc4.$(OBJEXT) \
 	utils.$(OBJEXT)
 iodns_OBJECTS = $(am_iodns_OBJECTS)
-iodns_LDADD = $(LDADD)
+iodns_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_ioredir_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) \
 	ioredir.$(OBJEXT) log.$(OBJEXT) md5.$(OBJEXT) mem.$(OBJEXT) \
 	rc4.$(OBJEXT) utils.$(OBJEXT)
 ioredir_OBJECTS = $(am_ioredir_OBJECTS)
-ioredir_LDADD = $(LDADD)
+ioredir_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_ioserver_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) log.$(OBJEXT) \
 	md5.$(OBJEXT) mem.$(OBJEXT) ioserver.$(OBJEXT) rc4.$(OBJEXT) \
 	utils.$(OBJEXT)
 ioserver_OBJECTS = $(am_ioserver_OBJECTS)
-ioserver_LDADD = $(LDADD)
+ioserver_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -171,6 +172,7 @@ DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
+ANL_LIBS = @ANL_LIBS@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
@@ -187,6 +189,7 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+EV_LIBS = @EV_LIBS@
 EXEEXT = @EXEEXT@
 GREP = @GREP@
 INSTALL = @INSTALL@
@@ -209,6 +212,7 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+RESOLV_LIBS = @RESOLV_LIBS@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -272,6 +276,7 @@ ioserver_SOURCES = conf.c \
                    rc4.h \
                    utils.h
 
+ioserver_LDADD = $(EV_LIBS) $(ANL_LIBS)
 ioclient_SOURCES = conf.c \
                    encrypt.c \
                    ioclient.c \
@@ -288,6 +293,7 @@ ioclient_SOURCES = conf.c \
                    rc4.h \
                    utils.h
 
+ioclient_LDADD = $(EV_LIBS)
 iodns_SOURCES = conf.c \
                 encrypt.c \
                 iodns.c \
@@ -304,6 +310,7 @@ iodns_SOURCES = conf.c \
                 rc4.h \
                 utils.h
 
+iodns_LDADD = $(EV_LIBS) $(RESOLV_LIBS)
 ioredir_SOURCES = conf.c \
                   encrypt.c \
                   ioredir.c \
@@ -320,6 +327,7 @@ ioredir_SOURCES = conf.c \
                   rc4.h \
                   utils.h
 
+ioredir_LDADD = $(EV_LIBS)
 all: all-am
 
 .SUFFIXES:

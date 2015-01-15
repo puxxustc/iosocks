@@ -17,6 +17,7 @@ ioserver_SOURCES = conf.c \
                    mem.h \
                    rc4.h \
                    utils.h
+ioserver_LDADD = $(EV_LIBS) $(ANL_LIBS)
 
 ioclient_SOURCES = conf.c \
                    encrypt.c \
@@ -33,6 +34,7 @@ ioclient_SOURCES = conf.c \
                    mem.h \
                    rc4.h \
                    utils.h
+ioclient_LDADD = $(EV_LIBS)
 
 iodns_SOURCES = conf.c \
                 encrypt.c \
@@ -49,6 +51,7 @@ iodns_SOURCES = conf.c \
                 mem.h \
                 rc4.h \
                 utils.h
+iodns_LDADD = $(EV_LIBS) $(RESOLV_LIBS)
 
 ioredir_SOURCES = conf.c \
                   encrypt.c \
@@ -65,3 +68,4 @@ ioredir_SOURCES = conf.c \
                   mem.h \
                   rc4.h \
                   utils.h
+ioredir_LDADD = $(EV_LIBS)

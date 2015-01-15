@@ -21,15 +21,6 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if you have the `anl' library (-lanl). */
-#undef HAVE_LIBANL
-
-/* Define to 1 if you have the `ev' library (-lev). */
-#undef HAVE_LIBEV
-
-/* Define to 1 if you have the `resolv' library (-lresolv). */
-#undef HAVE_LIBRESOLV
-
 /* Define to 1 if you have the <linux/if.h> header file. */
 #undef HAVE_LINUX_IF_H
 
