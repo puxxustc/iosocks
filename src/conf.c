@@ -271,6 +271,22 @@ int read_conf(const char *file, conf_t *conf)
 		{
 			conf->server[i].port = "1205";
 		}
+		else
+		{
+			char *p = strchr(conf->server[i].port, ',');
+			while (p != NULL)
+			{
+				*p = '\0';
+				if (conf->server_num < MAX_SERVER)
+				{
+					conf->server[conf->server_num].address = conf->server[i].address;
+					conf->server[conf->server_num].port = p + 1;
+					conf->server[conf->server_num].key = conf->server[i].key;
+					conf->server_num++;
+				}
+				p = strchr(p + 1, ',');
+			}
+		}
 	}
 	if (conf->local.address == NULL)
 	{

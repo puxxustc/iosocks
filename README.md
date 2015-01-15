@@ -77,12 +77,12 @@ usage: ioredir
 ```ini
 [server]
 address=192.168.1.1
-port=1205
+port=1205, 80, 443
 key=testkey
 
 [server]
 address=192.168.1.2
-port=1205
+port=1205, 80, 443
 key=testkey2
 
 [local]
