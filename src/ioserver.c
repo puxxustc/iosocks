@@ -43,6 +43,9 @@
 // 缓冲区大小
 #define BUF_SIZE 8192
 
+// 最大域名解析次数
+#define MAX_TRY 4
+
 // 魔数
 #define MAGIC 0x526f6e61
 
@@ -60,8 +63,8 @@ typedef struct
 	struct gaicb req;
 	struct addrinfo hints;
 	struct addrinfo *res;
-	char host[264];
-	char port[8];
+	char host[257];
+	char port[15];
 } gai_t;
 
 // 连接控制块
@@ -75,10 +78,11 @@ typedef struct
 	ssize_t tx_bytes;
 	ssize_t rx_offset;
 	ssize_t tx_offset;
-	gai_t *gai;
-	int server_id;
 	int sock_local;
 	int sock_remote;
+	int server_id;
+	int resolv_tried;
+	gai_t *gai;
 	enc_evp_t enc_evp;
 	uint8_t rx_buf[BUF_SIZE];
 	uint8_t tx_buf[BUF_SIZE];
@@ -89,6 +93,7 @@ static void help(void);
 static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
 static void iosocks_recv_cb(EV_P_ ev_io *w, int revents);
+static void emit_resolv(conn_t *conn);
 static void local_read_cb(EV_P_ ev_io *w, int revents);
 static void local_write_cb(EV_P_ ev_io *w, int revents);
 static void remote_read_cb(EV_P_ ev_io *w, int revents);
@@ -358,6 +363,12 @@ static void iosocks_recv_cb(EV_P_ ev_io *w, int revents)
 	conn->gai->req.ar_service = conn->gai->port;
 	conn->gai->req.ar_request = &(conn->gai->hints);
 	conn->gai->req.ar_result = NULL;
+	conn->resolv_tried = 0;
+	emit_resolv(conn);
+}
+
+static void emit_resolv(conn_t *conn)
+{
 	struct gaicb *req_ptr = &(conn->gai->req);
 	struct sigevent sevp;
 	sevp.sigev_notify = SIGEV_SIGNAL;
@@ -365,10 +376,11 @@ static void iosocks_recv_cb(EV_P_ ev_io *w, int revents)
 	sevp.sigev_value.sival_ptr = (void *)conn;
 	if (getaddrinfo_a(GAI_NOWAIT, &req_ptr, 1, &sevp) != 0)
 	{
+		ERR("getaddrinfo_a");
 		close(conn->sock_local);
 		mem_delete(conn);
-		return;
 	}
+	conn->resolv_tried++;
 }
 
 static void resolv_cb(int signo, siginfo_t *info, void *context)
@@ -378,14 +390,7 @@ static void resolv_cb(int signo, siginfo_t *info, void *context)
 	assert(signo == SIGUSR1);
 	assert(conn != NULL);
 
-	if (gai_error(&conn->gai->req) != 0)
-	{
-		// 域名解析失败
-		LOG("can not resolv host: %s", conn->gai->host);
-		close(conn->sock_local);
-		mem_delete(conn);
-	}
-	else
+	if (gai_error(&conn->gai->req) == 0)
 	{
 		// 域名解析成功，建立远程连接
 		conn->gai->res = conn->gai->req.ar_result;
@@ -404,6 +409,21 @@ static void resolv_cb(int signo, siginfo_t *info, void *context)
 		conn->w_remote_write.data = (void *)conn;
 		ev_io_start(EV_A_ &conn->w_remote_write);
 		connect(conn->sock_remote, (struct sockaddr *)conn->gai->res->ai_addr, conn->gai->res->ai_addrlen);
+	}
+	else
+	{
+		// 域名解析失败
+		if (conn->resolv_tried < MAX_TRY)
+		{
+			LOG("failed to resolv host: %s, try again", conn->gai->host);
+			emit_resolv(conn);
+		}
+		else
+		{
+			LOG("failed to resolv host: %s, abort", conn->gai->host);
+			close(conn->sock_local);
+			mem_delete(conn);
+		}
 	}
 }
 
