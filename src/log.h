@@ -1,5 +1,5 @@
 /*
- * log.h - define log interface
+ * log.h - log functions
  *
  * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
  *

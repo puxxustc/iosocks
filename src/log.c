@@ -1,5 +1,5 @@
 /*
- * log.c - log system
+ * log.c - log functions
  *
  * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -21,21 +21,15 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/time.h>
+#include <time.h>
 #include "log.h"
 
 void __log(FILE *stream, const char *format, ...)
 {
-	static double start_time = -1.0;
-	double now;
-	struct timeval t;
-	gettimeofday(&t, NULL);
-	now = t.tv_sec + t.tv_usec / 1000000.0;
-	if (start_time < 0.0)
-	{
-		start_time = now;
-	}
-	fprintf(stream, "[%8.2lf] ", now - start_time);
+	time_t now = time(NULL);
+	char timestr[20];
+	strftime(timestr, 20, "%y-%m-%d %H:%M:%S", localtime(&now));
+	fprintf(stream, "[%s] ", timestr);
 
 	va_list args;
 	va_start(args, format);
