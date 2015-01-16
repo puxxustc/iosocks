@@ -200,7 +200,7 @@ int main(int argc, char **argv)
 	sa.sa_handler = (void(*) (int))resolv_cb;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART | SA_SIGINFO;
-	if (sigaction(SIGUSR1, &sa, NULL) != 0)
+	if (sigaction(SIGIO, &sa, NULL) != 0)
 	{
 		LOG("failed to setup SIGUSR1 handler");
 		return 3;
@@ -372,7 +372,7 @@ static void emit_resolv(conn_t *conn)
 	struct gaicb *req_ptr = &(conn->gai->req);
 	struct sigevent sevp;
 	sevp.sigev_notify = SIGEV_SIGNAL;
-	sevp.sigev_signo = SIGUSR1;
+	sevp.sigev_signo = SIGIO;
 	sevp.sigev_value.sival_ptr = (void *)conn;
 	if (getaddrinfo_a(GAI_NOWAIT, &req_ptr, 1, &sevp) != 0)
 	{
@@ -387,7 +387,7 @@ static void resolv_cb(int signo, siginfo_t *info, void *context)
 {
 	conn_t *conn = (conn_t *)info->si_value.sival_ptr;
 
-	assert(signo == SIGUSR1);
+	assert(signo == SIGIO);
 	assert(conn != NULL);
 
 	if (gai_error(&conn->gai->req) == 0)
