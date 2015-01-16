@@ -254,17 +254,20 @@ int main(int argc, char **argv)
 				}
 			}
 		}
-		fputs("-A iosocks -d 0.0.0.0/8 -j RETURN\n", f);
-		fputs("-A iosocks -d 10.0.0.0/8 -j RETURN\n", f);
-		fputs("-A iosocks -d 127.0.0.0/8 -j RETURN\n", f);
-		fputs("-A iosocks -d 169.254.0.0/16 -j RETURN\n", f);
-		fputs("-A iosocks -d 172.16.0.0/12 -j RETURN\n", f);
-		fputs("-A iosocks -d 192.168.0.0/16 -j RETURN\n", f);
-		fputs("-A iosocks -d 224.0.0.0/4 -j RETURN\n", f);
-		fputs("-A iosocks -d 240.0.0.0/4 -j RETURN\n", f);
-		fprintf(f, "-A iosocks -p tcp -j REDIRECT --to-ports %s\n", conf.redir.port);
-		fputs("-A OUTPUT -p tcp -j iosocks\n", f);
-		fputs("COMMIT\n", f);
+		fprintf(f,
+		        "-A iosocks -d 0.0.0.0/8 -j RETURN\n"
+		        "-A iosocks -d 10.0.0.0/8 -j RETURN\n"
+		        "-A iosocks -d 127.0.0.0/8 -j RETURN\n"
+		        "-A iosocks -d 169.254.0.0/16 -j RETURN\n"
+		        "-A iosocks -d 172.16.0.0/12 -j RETURN\n"
+		        "-A iosocks -d 192.168.0.0/16 -j RETURN\n"
+		        "-A iosocks -d 224.0.0.0/4 -j RETURN\n"
+		        "-A iosocks -d 240.0.0.0/4 -j RETURN\n"
+		        "-A iosocks -p tcp -j REDIRECT --to-ports %s\n"
+		        "-A OUTPUT -p tcp -j iosocks\n"
+		        "-A PREROUTING -p tcp -j iosocks\n"
+		        "COMMIT\n",
+		        conf.redir.port);
 		pclose(f);
 	}
 
@@ -299,10 +302,11 @@ int main(int argc, char **argv)
 	LOG("Exit");
 	if (conf.redir.iptables)
 	{
-		LOG("Please run following commands to clean iptables rules:");
-		LOG("    iptables -t nat -D OUTPUT -p tcp -j iosocks");
-		LOG("    iptables -t nat -F iosocks");
-		LOG("    iptables -t nat -X iosocks");
+		LOG("Please run following commands to clean iptables rules:\n\n"
+		    "    iptables -t nat -D OUTPUT -p tcp -j iosocks\n"
+		    "    iptables -t nat -D PREROUTING -p tcp -j iosocks\n"
+		    "    iptables -t nat -F iosocks\n"
+		    "    iptables -t nat -X iosocks\n");
 	}
 
 	return 0;

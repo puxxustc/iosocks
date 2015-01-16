@@ -17,13 +17,6 @@ sudo apt-get install libev-dev
 
 ### make & install ###
 
-If autoconf < 2.69 or automake < 2.14
-
-```bash
-sed -i -e s/69/67/g configure.ac
-autoreconf -i
-```
-
 ```bash
 ./configure --prefix=/usr
 make
@@ -117,6 +110,8 @@ iptables -t nat -A iosocks -d 192.168.0.0/16 -j RETURN
 iptables -t nat -A iosocks -d 224.0.0.0/4 -j RETURN
 iptables -t nat -A iosocks -d 240.0.0.0/4 -j RETURN
 iptables -t nat -A iosocks -p tcp -j REDIRECT --to-ports 1081
+iptables -t nat -A OUTPUT -p tcp -j iosocks
+iptables -t nat -A PREROUTING -p tcp -j iosocks
 ```
 
 These operations can be done automatically if 'iptables=true' is set in config file.
