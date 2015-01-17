@@ -312,7 +312,7 @@ static void udp_read_cb(EV_P_ ev_io *w, int revents)
 	conn->w_local_read.data = (void *)conn;
 	conn->udp.addrlen = sizeof(struct sockaddr_storage);
 	conn->rx_bytes = recvfrom(conn->sock_local, conn->rx_buf + 2,
-	                          BUF_SIZE, 0,
+	                          BUF_SIZE - 2, 0,
 	                          (struct sockaddr *)&conn->udp.addr,
 	                          &conn->udp.addrlen);
 	*((uint16_t *)(conn->rx_buf)) = htons((uint16_t)conn->rx_bytes);

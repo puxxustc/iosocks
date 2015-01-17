@@ -151,5 +151,9 @@ ssize_t rand_bytes(void *stream, size_t len)
 	{
 		urand = open("/dev/urandom", O_RDONLY, 0);
 	}
+	if (urand < 0)
+	{
+		return -1;
+	}
 	return read(urand, stream, len);
 }
