@@ -63,7 +63,7 @@ void md5(const void *stream, size_t len, uint8_t digest[16])
 {
 	size_t n = len * 8 / 512 + 1;
 	uint32_t M[(n + 1) * 16];
-	memset(M, 0, sizeof(M));
+	bzero(M, sizeof(M));
 	for (size_t i = 0; i < len; i++)
 	{
 		M[i / 4] |= ((unsigned char *)stream)[i] << 8 * ((i % 4));
