@@ -30,6 +30,15 @@ if test "${assembly}" = "true" ; then
     AC_DEFINE([USE_ASSEMBLY], [1], [Use assembly to boost RC4])
 fi
 
+AC_ARG_ENABLE(
+    [debug],
+    [AS_HELP_STRING([--enable-debug], [build with additional debugging code])],
+    [
+        CFLAGS='-g -DDEBUG -fprofile-arcs -ftest-coverage -O0'
+    ]
+)
+AM_CONDITIONAL(DEBUG, test x"$debug" = x"true")
+
 # Checks for libraries.
 ANL_LIBS="-lanl"
 RESOLV_LIBS="-lresolv"

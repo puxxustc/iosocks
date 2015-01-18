@@ -1,4 +1,8 @@
-# iosocks [![Build Status](https://travis-ci.org/XiaoxiaoPu/iosocks.svg?branch=master)](https://travis-ci.org/XiaoxiaoPu/iosocks) [![Coverity Scan Build Status](https://scan.coverity.com/projects/3948/badge.svg)](https://scan.coverity.com/projects/3948) #
+# iosocks #
+
+[![Build Status](https://travis-ci.org/XiaoxiaoPu/iosocks.svg?branch=master)](https://travis-ci.org/XiaoxiaoPu/iosocks)
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/3948/badge.svg)](https://scan.coverity.com/projects/3948)
+[![Coverage](https://jenkins.xiaoxiao.im/job/iosocks/ws/coverage.svg)](https://jenkins.xiaoxiao.im/job/iosocks/ws/src/index.html)
 
 A lightweight tunnel proxy, provides a SOCKS5 proxy, a DNS forwarder and a transparent TCP proxy.
 

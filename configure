@@ -633,6 +633,8 @@ CPP
 EV_LIBS
 RESOLV_LIBS
 ANL_LIBS
+DEBUG_FALSE
+DEBUG_TRUE
 am__fastdepCC_FALSE
 am__fastdepCC_TRUE
 CCDEPMODE
@@ -721,6 +723,7 @@ enable_option_checking
 enable_silent_rules
 enable_dependency_tracking
 enable_assembly
+enable_debug
 enable_assert
 '
       ac_precious_vars='build_alias
@@ -1353,6 +1356,7 @@ Optional Features:
   --disable-dependency-tracking
                           speeds up one-time build
   --disable-assembly      disable inline assembly
+  --enable-debug          build with additional debugging code
   --disable-assert        turn off assertions
 
 Some influential environment variables:
@@ -4109,6 +4113,23 @@ $as_echo "#define USE_ASSEMBLY 1" >>confdefs.h
 
 fi
 
+# Check whether --enable-debug was given.
+if test "${enable_debug+set}" = set; then :
+  enableval=$enable_debug;
+        CFLAGS='-g -DDEBUG -fprofile-arcs -ftest-coverage -O0'
+
+
+fi
+
+ if test x"$debug" = x"true"; then
+  DEBUG_TRUE=
+  DEBUG_FALSE='#'
+else
+  DEBUG_TRUE='#'
+  DEBUG_FALSE=
+fi
+
+
 # Checks for libraries.
 ANL_LIBS="-lanl"
 RESOLV_LIBS="-lresolv"
@@ -5075,6 +5096,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCC_TRUE}" && test -z "${am__fastdepCC_FALSE}"; then
   as_fn_error $? "conditional \"am__fastdepCC\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${DEBUG_TRUE}" && test -z "${DEBUG_FALSE}"; then
+  as_fn_error $? "conditional \"DEBUG\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 
