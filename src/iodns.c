@@ -670,22 +670,25 @@ static void connect_server(EV_P_ conn_t *conn)
 	        (struct sockaddr *)&servers[conn->server_id].addr,
 	        servers[conn->server_id].addrlen) != 0)
 	{
-		// 连接失败
-		servers[conn->server_id].health = -10;
-		if (conn->server_tried < MAX_TRY)
+		if (errno != EINPROGRESS)
 		{
-			LOG("connect to ioserver failed, try again");
-			close(conn->sock_remote);
-			connect_server(EV_A_ conn);
+			// 连接失败
+			servers[conn->server_id].health = -10;
+			if (conn->server_tried < MAX_TRY)
+			{
+				LOG("connect to ioserver failed, try again");
+				close(conn->sock_remote);
+				connect_server(EV_A_ conn);
+			}
+			else
+			{
+				LOG("connect to ioserver failed, abort");
+				close(conn->sock_local);
+				close(conn->sock_remote);
+				mem_delete(conn);
+			}
+			return;
 		}
-		else
-		{
-			LOG("connect to ioserver failed, abort");
-			close(conn->sock_local);
-			close(conn->sock_remote);
-			mem_delete(conn);
-		}
-		return;
 	}
 	ev_io_init(&conn->w_remote_write, connect_cb, conn->sock_remote, EV_WRITE);
 	conn->w_remote_write.data = (void *)conn;
