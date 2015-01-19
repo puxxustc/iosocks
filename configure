@@ -4811,6 +4811,20 @@ _ACEOF
 
 fi
 
+ac_fn_c_find_uintX_t "$LINENO" "8" "ac_cv_c_uint8_t"
+case $ac_cv_c_uint8_t in #(
+  no|yes) ;; #(
+  *)
+
+$as_echo "#define _UINT8_T 1" >>confdefs.h
+
+
+cat >>confdefs.h <<_ACEOF
+#define uint8_t $ac_cv_c_uint8_t
+_ACEOF
+;;
+  esac
+
 ac_fn_c_find_uintX_t "$LINENO" "16" "ac_cv_c_uint16_t"
 case $ac_cv_c_uint16_t in #(
   no|yes) ;; #(
@@ -4837,16 +4851,16 @@ _ACEOF
 ;;
   esac
 
-ac_fn_c_find_uintX_t "$LINENO" "8" "ac_cv_c_uint8_t"
-case $ac_cv_c_uint8_t in #(
+ac_fn_c_find_uintX_t "$LINENO" "64" "ac_cv_c_uint64_t"
+case $ac_cv_c_uint64_t in #(
   no|yes) ;; #(
   *)
 
-$as_echo "#define _UINT8_T 1" >>confdefs.h
+$as_echo "#define _UINT64_T 1" >>confdefs.h
 
 
 cat >>confdefs.h <<_ACEOF
-#define uint8_t $ac_cv_c_uint8_t
+#define uint64_t $ac_cv_c_uint64_t
 _ACEOF
 ;;
   esac

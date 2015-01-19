@@ -36,8 +36,8 @@
 #include "conf.h"
 #include "encrypt.h"
 #include "log.h"
-#include "md5.h"
 #include "mem.h"
+#include "sha512.h"
 #include "utils.h"
 
 // 缓冲区大小
@@ -630,10 +630,7 @@ static void connect_server(EV_P_ conn_t *conn)
 	uint8_t key[64];
 	rand_bytes(conn->rx_buf, 236);
 	memcpy(conn->rx_buf + 236, servers[conn->server_id].key, servers[conn->server_id].key_len);
-	md5(conn->rx_buf, 236 + servers[conn->server_id].key_len, key);
-	md5(key, 16, key + 16);
-	md5(key, 32, key + 32);
-	md5(key, 48, key + 48);
+	sha512(key, conn->rx_buf, 236 + servers[conn->server_id].key_len);
 	bzero(conn->tx_buf, 276);
 	*((uint32_t *)(conn->tx_buf)) = htonl(MAGIC);
 	strcpy((char *)conn->tx_buf + 4, conn->dst_addr);

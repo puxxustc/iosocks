@@ -36,8 +36,8 @@
 #include "conf.h"
 #include "encrypt.h"
 #include "log.h"
-#include "md5.h"
 #include "mem.h"
+#include "sha512.h"
 #include "utils.h"
 
 // 缓冲区大小
@@ -335,10 +335,7 @@ static void iosocks_recv_cb(EV_P_ ev_io *w, int revents)
 	uint8_t key[64];
 	memcpy(conn->rx_buf, conn->tx_buf + 276, 236);
 	memcpy(conn->rx_buf + 236, servers[conn->server_id].key, servers[conn->server_id].key_len);
-	md5(conn->rx_buf, 236 + servers[conn->server_id].key_len, key);
-	md5(key, 16, key + 16);
-	md5(key, 32, key + 32);
-	md5(key, 48, key + 48);
+	sha512(key, conn->rx_buf, 236 + servers[conn->server_id].key_len);
 	enc_init(&conn->enc_evp, enc_rc4, key, 64);
 	io_decrypt(conn->tx_buf, 276, &conn->enc_evp);
 	if (ntohl(*((uint32_t *)(conn->tx_buf))) != MAGIC)
