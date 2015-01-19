@@ -8,18 +8,25 @@ from subprocess import Popen
 
 ioserver = ['src/ioserver', '-c', 'test/test.conf']
 ioclient = ['src/ioclient', '-c', 'test/test.conf']
-iodns = ['src/iodns', '-c', 'test/test.conf']
+iodns =    ['src/iodns',    '-c', 'test/test.conf']
+ioredir =  ['src/ioredir',  '-c', 'test/test.conf']
 
 p1 = Popen(ioserver, shell=False, bufsize=0, close_fds=True)
 p2 = Popen(ioclient, shell=False, bufsize=0, close_fds=True)
-p3 = Popen(iodns, shell=False, bufsize=0, close_fds=True)
-
+p3 = Popen(iodns,    shell=False, bufsize=0, close_fds=True)
+p4 = Popen(ioredir,  shell=False, bufsize=0, close_fds=True)
 time.sleep(1)
 
-cmds = ['curl --socks5-hostname 127.0.0.2:1080 https://twitter.com/',
-        'curl --socks5-hostname 127.0.0.2:1080 https://github.com/',
-        'curl --socks5-hostname 127.0.0.2:1080 https://www.facebook.com/',
-        'curl --socks5-hostname 127.0.0.2:1080 https://www.youtube.com/',
+cmds = ['curl -o /dev/null --socks5-hostname 127.0.0.2:1080 https://twitter.com/',
+        'curl -o /dev/null --socks5-hostname 127.0.0.2:1080 https://github.com/',
+        'curl -o /dev/null --socks5-hostname 127.0.0.2:1080 https://www.facebook.com/',
+        'curl -o /dev/null --socks5-hostname 127.0.0.2:1080 https://www.youtube.com/',
+        'curl -o /dev/null -4 --socks5 127.0.0.2:1080 https://github.com/',
+        'curl -o /dev/null -6 --socks5 127.0.0.2:1080 https://www.facebook.com/',
+        'curl -o /dev/null --local-port 2000 https://twitter.com/',
+        'curl -o /dev/null --local-port 2001 https://github.com/',
+        'curl -o /dev/null --local-port 2002 https://www.facebook.com/',
+        'curl -o /dev/null --local-port 2003 https://www.youtube.com/',
         'dig @127.0.0.1 -p 5300 twitter.com',
         'dig @127.0.0.1 -p 5300 github.com',
         'dig @127.0.0.1 -p 5300 www.facebook.com',
@@ -32,28 +39,42 @@ cmds = ['curl --socks5-hostname 127.0.0.2:1080 https://twitter.com/',
         'dig @127.0.0.1 -p 5300 +tcp twitter.com']
 
 for cmd in cmds:
-	p4 = Popen(cmd.split(), shell=False, bufsize=0, close_fds=True)
-
-	if p4 is not None:
-		r = p4.wait()
+	p5 = Popen(cmd.split(), shell=False, bufsize=0, close_fds=True)
+	if p5 is not None:
+		r = p5.wait()
 	if r == 0:
 		print('test passed')
+	time.sleep(1)
 
-for p in [p1]:
-	try:
-		os.kill(p.pid, signal.SIGINT)
-		os.waitpid(p.pid, 0)
-	except OSError:
-		pass
+# Test fails
+cmds = ['curl -o /dev/null --connect-timeout 5 --socks5-hostname 127.0.0.2:1080 https://twitter.lo/',
+        'curl -o /dev/null --connect-timeout 5 --socks5-hostname 127.0.0.2:1080 https://github.lo/',
+        'curl -o /dev/null --connect-timeout 5 --socks5-hostname 127.0.0.2:1080 https://www.facebook.lo/',
+        'curl -o /dev/null --connect-timeout 5 --socks5-hostname 127.0.0.2:1080 https://www.youtube.lo/',
+        'curl -o /dev/null --connect-timeout 5 -4 --socks5 127.0.0.2:1080 https://github.lo/',
+        'curl -o /dev/null --connect-timeout 5 -6 --socks5 127.0.0.2:1080 https://www.facebook.lo/',
+        'curl -o /dev/null --connect-timeout 5 --local-port 2000 https://twitter.lo/',
+        'curl -o /dev/null --connect-timeout 5 --local-port 2001 https://github.lo/',
+        'curl -o /dev/null --connect-timeout 5 --local-port 2002 https://www.facebook.lo/',
+        'curl -o /dev/null --connect-timeout 5 --local-port 2003 https://www.youtube.lo/',
+        'dig @127.0.0.1 -p 5300 twitter.lo',
+        'dig @127.0.0.1 -p 5300 github.lo',
+        'dig @127.0.0.1 -p 5300 www.facebook.lo',
+        'dig @127.0.0.1 -p 5300 www.youtube.lo',
+        'dig @127.0.0.1 -p 5300 twitter.lo',
+        'dig @127.0.0.1 -p 5300 +tcp twitter.lo',
+        'dig @127.0.0.1 -p 5300 +tcp github.lo',
+        'dig @127.0.0.1 -p 5300 +tcp www.facebook.lo',
+        'dig @127.0.0.1 -p 5300 +tcp www.youtube.lo',
+        'dig @127.0.0.1 -p 5300 +tcp twitter.lo']
 
-for p in [p2]:
-	try:
-		os.kill(p.pid, signal.SIGINT)
-		os.waitpid(p.pid, 0)
-	except OSError:
-		pass
+for cmd in cmds:
+	p5 = Popen(cmd.split(), shell=False, bufsize=0, close_fds=True)
+	if p5 is not None:
+		p5.wait()
+	print('test passed')
 
-for p in [p3]:
+for p in [p1, p2, p3, p4]:
 	try:
 		os.kill(p.pid, signal.SIGINT)
 		os.waitpid(p.pid, 0)

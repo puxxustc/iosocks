@@ -118,7 +118,7 @@ iptables -t nat -A OUTPUT -p tcp -j iosocks
 iptables -t nat -A PREROUTING -p tcp -j iosocks
 ```
 
-These operations can be done automatically if 'iptables=true' is set in config file.
+These operations can be done automatically if 'iptables=true' is set in config file. You must remove them manually.
 
 ## License ##
 
