@@ -6,7 +6,7 @@
 *.html
 *~
 .deps/
-coverage.svg
+*.svg
 Makefile
 src/Makefile
 autom4te.cache/
