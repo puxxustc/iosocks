@@ -6,6 +6,7 @@
 *.html
 *~
 .deps/
+.lint/
 *.svg
 Makefile
 src/Makefile
