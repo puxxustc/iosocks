@@ -377,6 +377,7 @@ static void emit_resolv(conn_t *conn)
 		ERR("getaddrinfo_a");
 		close(conn->sock_local);
 		mem_delete(conn);
+		return;
 	}
 	conn->resolv_tried++;
 }
