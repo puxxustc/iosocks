@@ -183,11 +183,11 @@ int main(int argc, char **argv)
 	}
 
 	// 初始化内存池
-	size_t block_size[1] = { sizeof(conn_t) };
-	size_t block_count[1] = { IOREDIR_CONN };
-	if (mem_init(block_size, block_count, 1) != 0)
+	size_t chunk_size[1] = { sizeof(conn_t) };
+	size_t chunk_count[1] = { IOREDIR_CONN };
+	if (mem_init(chunk_size, chunk_count, 1) != 0)
 	{
-		LOG("memory pool error");
+		LOG("Out of memory");
 		return 3;
 	}
 
@@ -299,6 +299,7 @@ int main(int argc, char **argv)
 
 	// 退出
 	close(sock_listen);
+	mem_destroy();
 	LOG("Exit");
 	if (conf.redir.iptables)
 	{

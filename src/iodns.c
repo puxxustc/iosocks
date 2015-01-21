@@ -187,11 +187,11 @@ int main(int argc, char **argv)
 	}
 
 	// 初始化内存池
-	size_t block_size[2] = { sizeof(ev_timer), sizeof(conn_t) };
-	size_t block_count[2] = { 8, IODNS_CONN };
-	if (mem_init(block_size, block_count, 2) != 0)
+	size_t chunk_size[2] = { sizeof(ev_timer), sizeof(conn_t) };
+	size_t chunk_count[2] = { 4, IODNS_CONN };
+	if (mem_init(chunk_size, chunk_count, 2) != 0)
 	{
-		LOG("memory pool error");
+		LOG("Out of memory");
 		return 3;
 	}
 
@@ -280,6 +280,7 @@ int main(int argc, char **argv)
 
 	// 退出
 	close(sock_tcp);
+	mem_destroy();
 	LOG("Exit");
 
 	return 0;

@@ -12,11 +12,18 @@ rm -rf .lint
 scan-build -o .lint -analyze-headers --use-cc=clang make
 cd .lint
 DIR=$(ls)
-mv ${DIR}/* ./
-rmdir ${DIR}
+if [[ ${DIR} ]]; then
+	mv ${DIR}/* ./
+	rmdir ${DIR}
+fi
 cd ..
 
-BUG=$(cat .lint/index.html | grep 'All Bugs' | tr '><' '\n' | grep '[0-9]')
+if [ -f .lint/index.html ]; then
+	BUG=$(cat .lint/index.html | grep 'All Bugs' | tr '><' '\n' | grep '[0-9]')
+else
+	echo 'No bugs found.' > .lint/index.html
+	BUG=0
+fi
 if [ ${BUG} -lt 3 ]; then
 	COLOR=brightgreen
 elif [ ${BUG} -lt 6 ]; then
@@ -24,7 +31,7 @@ elif [ ${BUG} -lt 6 ]; then
 else
 	COLOR=red
 fi
-if [ ${BUG} -eq 1 ]; then
+if [ ${BUG} -lt 1 ]; then
 	BUG="${BUG}%20bug"
 else
 	BUG="${BUG}%20bugs"

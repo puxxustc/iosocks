@@ -22,8 +22,9 @@
 
 #include <stddef.h>
 
-extern int mem_init(size_t *block_size, size_t *block_count, size_t pool_count);
+extern int   mem_init(size_t *chunk_size, size_t *chunk_count, size_t cluster_count);
+extern void  mem_destroy(void);
 extern void *mem_new(size_t size);
-extern void mem_delete(void *ptr);
+extern void  mem_delete(void *ptr);
 
 #endif // MEM_H

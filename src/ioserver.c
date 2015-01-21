@@ -178,11 +178,11 @@ int main(int argc, char **argv)
 	}
 
 	// 初始化内存池
-	size_t block_size[1] = { sizeof(conn_t) };
-	size_t block_count[1] = { IOSERVER_CONN };
-	if (mem_init(block_size, block_count, 1) != 0)
+	size_t chunk_size[1] = { sizeof(conn_t) };
+	size_t chunk_count[1] = { IOSERVER_CONN };
+	if (mem_init(chunk_size, chunk_count, 1) != 0)
 	{
-		LOG("memory pool error");
+		LOG("Out of memory");
 		return 2;
 	}
 
@@ -260,6 +260,7 @@ int main(int argc, char **argv)
 
 	// 退出
 	LOG("Exit");
+	mem_destroy();
 	for (int i = 0; i < conf.server_num; i++)
 	{
 		close(sock_listen[i]);

@@ -34,8 +34,8 @@ sudo iptables -t nat -D OUTPUT -p tcp --sport 2003 -j iosocks
 sudo iptables -t nat -F iosocks
 sudo iptables -t nat -X iosocks
 
-gcov src/*.c
 cd src
+gcov *.c
 gcovr -r . --html  --html-details  -o index.html
 cd ..
 
