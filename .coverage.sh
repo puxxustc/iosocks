@@ -5,7 +5,7 @@ set -e
 if [ -f Makefile ]; then
 	make distclean
 fi
-rm -f *.gcov src/*.gcda src/*.gcno  src/*.html
+rm -f src/*.gcda src/*.gcno src/*.html
 
 ./configure --enable-debug
 make

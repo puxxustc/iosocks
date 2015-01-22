@@ -3,9 +3,9 @@
 [![Release](https://img.shields.io/github/release/XiaoxiaoPu/iosocks.svg?style=flat)](https://github.com/XiaoxiaoPu/iosocks/releases/latest)
 [![License](https://img.shields.io/badge/license-GPL%203-blue.svg?style=flat)](http://www.gnu.org/licenses/gpl.html)
 [![Build Status](https://travis-ci.org/XiaoxiaoPu/iosocks.svg?branch=master)](https://travis-ci.org/XiaoxiaoPu/iosocks)
-[![Coverity Scan Build Status](https://jenkins.xiaoxiao.im/job/iosocks/ws/.coverity.svg)](https://scan.coverity.com/projects/3948)
 [![Clang static analysis](https://jenkins.xiaoxiao.im/job/iosocks/ws/.lint.svg)](https://jenkins.xiaoxiao.im/job/iosocks/ws/.lint/index.html)
 [![Coverage](https://jenkins.xiaoxiao.im/job/iosocks/ws/.coverage.svg)](https://jenkins.xiaoxiao.im/job/iosocks/ws/src/index.html)
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/3948/badge.svg)](https://scan.coverity.com/projects/3948)
 
 A lightweight tunnel proxy, provides a SOCKS5 proxy, a DNS forwarder and a transparent TCP proxy.
 

@@ -195,7 +195,7 @@ int main(int argc, char **argv)
 	ev_signal_start(EV_A_ &w_sigint);
 	ev_signal_start(EV_A_ &w_sigterm);
 
-	// SIGUSR1 信号
+	// SIGIO 信号
 	struct sigaction sa;
 	sa.sa_handler = (void(*) (int))resolv_cb;
 	sigemptyset(&sa.sa_mask);
