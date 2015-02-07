@@ -1,7 +1,7 @@
 /*
  * conf.c - parse config file
  *
- * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
+ * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,14 +28,14 @@
 
 int read_conf(const char *file, conf_t *conf)
 {
+	bzero(conf, sizeof(conf_t));
+
 	FILE *f = fopen(file, "rb");
 	if (f == NULL)
 	{
 		LOG("failed to read conf file");
 		return -1;
 	}
-
-	bzero(conf, sizeof(conf_t));
 
 	int line_num = 0;
 	char buf[MAX_LINE];
@@ -45,7 +45,6 @@ int read_conf(const char *file, conf_t *conf)
 		global,
 		server,
 		local,
-		dns,
 		redir
 	} section = null;
 
@@ -89,10 +88,6 @@ int read_conf(const char *file, conf_t *conf)
 			else if (strcmp(line, "[local]") == 0)
 			{
 				section = local;
-			}
-			else if (strcmp(line, "[dns]") == 0)
-			{
-				section = dns;
 			}
 			else if (strcmp(line, "[redir]") == 0)
 			{
@@ -186,41 +181,6 @@ int read_conf(const char *file, conf_t *conf)
 					conf->local.port = strdup(value);
 				}
 			}
-			else if (section == dns)
-			{
-				if (strcmp(name, "address") == 0)
-				{
-					if (conf->dns.address != NULL)
-					{
-						free(conf->dns.address);
-					}
-					conf->dns.address = strdup(value);
-				}
-				else if (strcmp(name, "port") == 0)
-				{
-					if (conf->dns.port != NULL)
-					{
-						free(conf->dns.port);
-					}
-					conf->dns.port = strdup(value);
-				}
-				else if (strcmp(name, "upstream_addr") == 0)
-				{
-					if (conf->dns.upstream_addr != NULL)
-					{
-						free(conf->dns.upstream_addr);
-					}
-					conf->dns.upstream_addr = strdup(value);
-				}
-				else if (strcmp(name, "upstream_port") == 0)
-				{
-					if (conf->dns.upstream_port != NULL)
-					{
-						free(conf->dns.upstream_port);
-					}
-					conf->dns.upstream_port = strdup(value);
-				}
-			}
 			else if (section == redir)
 			{
 				if (strcmp(name, "address") == 0)
@@ -303,22 +263,6 @@ int read_conf(const char *file, conf_t *conf)
 	if (conf->redir.port == NULL)
 	{
 		conf->redir.port = "1081";
-	}
-	if (conf->dns.address == NULL)
-	{
-		conf->dns.address = "127.0.0.1";
-	}
-	if (conf->dns.port == NULL)
-	{
-		conf->dns.port = "53";
-	}
-	if (conf->dns.upstream_addr == NULL)
-	{
-		conf->dns.upstream_addr = "8.8.8.8";
-	}
-	if (conf->dns.upstream_port == NULL)
-	{
-		conf->dns.upstream_port = "53";
 	}
 
 	return 0;

@@ -1,7 +1,7 @@
 /*
  * ioredir.c - A transparent TCP proxy
  *
- * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
+ * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,7 +24,6 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <resolv.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +38,8 @@
 #include "mem.h"
 #include "sha512.h"
 #include "utils.h"
+
+#define UNUSED(x) do {(void)(x);} while (0)
 
 // 缓冲区大小
 #define BUF_SIZE 8192
@@ -323,12 +324,16 @@ static void help(void)
 
 static void signal_cb(EV_P_ ev_signal *w, int revents)
 {
+	UNUSED(revents);
+
 	assert((w->signum == SIGINT) || (w->signum == SIGTERM));
 	ev_break(EV_A_ EVBREAK_ALL);
 }
 
 static void accept_cb(EV_P_ ev_io *w, int revents)
 {
+	UNUSED(revents);
+
 	conn_t *conn = (conn_t *)mem_new(sizeof(conn_t));
 	if (conn == NULL)
 	{
@@ -374,6 +379,8 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 
 static void connect_cb(EV_P_ ev_io *w, int revents)
 {
+	UNUSED(revents);
+
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
@@ -408,6 +415,8 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 
 static void iosocks_send_cb(EV_P_ ev_io *w, int revents)
 {
+	UNUSED(revents);
+
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
@@ -440,6 +449,8 @@ static void iosocks_send_cb(EV_P_ ev_io *w, int revents)
 
 static void local_read_cb(EV_P_ ev_io *w, int revents)
 {
+	UNUSED(revents);
+
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
@@ -484,6 +495,8 @@ static void local_read_cb(EV_P_ ev_io *w, int revents)
 
 static void local_write_cb(EV_P_ ev_io *w, int revents)
 {
+	UNUSED(revents);
+
 	conn_t *conn = (conn_t *)w->data;
 
 	assert(conn != NULL);
@@ -517,6 +530,8 @@ static void local_write_cb(EV_P_ ev_io *w, int revents)
 
 static void remote_read_cb(EV_P_ ev_io *w, int revents)
 {
+	UNUSED(revents);
+
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);
@@ -561,6 +576,8 @@ static void remote_read_cb(EV_P_ ev_io *w, int revents)
 
 static void remote_write_cb(EV_P_ ev_io *w, int revents)
 {
+	UNUSED(revents);
+
 	conn_t *conn = (conn_t *)(w->data);
 
 	assert(conn != NULL);

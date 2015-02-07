@@ -41,15 +41,12 @@ AM_CONDITIONAL(DEBUG, test x"$debug" = x"true")
 
 # Checks for libraries.
 ANL_LIBS="-lanl"
-RESOLV_LIBS="-lresolv"
 EV_LIBS="-lev"
 AC_CHECK_LIB([anl], [getaddrinfo_a], [AC_SUBST(ANL_LIBS)])
-AC_CHECK_LIB([resolv], [ns_initparse], [AC_SUBST(RESOLV_LIBS)])
 AC_CHECK_LIB([ev], [ev_default_loop], [AC_SUBST(EV_LIBS)])
 
 # Checks for header files.
 AC_HEADER_ASSERT
-AC_HEADER_RESOLV
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h grp.h netdb.h netinet/in.h pwd.h stddef.h stdint.h stdlib.h string.h sys/socket.h sys/time.h unistd.h])
 AC_CHECK_HEADERS([linux/if.h linux/netfilter_ipv4.h linux/netfilter_ipv6/ip6_tables.h],
     [], [AC_MSG_ERROR([Missing netfilter headers])],

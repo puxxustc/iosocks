@@ -1,7 +1,7 @@
 /*
  * conf.h - parse config file
  *
- * Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
+ * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,9 +26,9 @@
 #define IOSERVER_CONN	128
 #define IOCLIENT_CONN	64
 #define IOREDIR_CONN	64
-#define IODNS_CONN		16
 
-typedef struct {
+typedef struct
+{
 	char *user;
 	char *group;
 	int server_num;
@@ -43,13 +43,6 @@ typedef struct {
 		char *address;
 		char *port;
 	} local;
-	struct
-	{
-		char *address;
-		char *port;
-		char *upstream_addr;
-		char *upstream_port;
-	} dns;
 	struct
 	{
 		char *address;

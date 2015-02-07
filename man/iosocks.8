@@ -1,16 +1,16 @@
-.TH IOSOCKS 8 "Jan 12, 2015"
+.TH IOSOCKS 8 "Feb 07, 2015"
 .SH NAME
 iosocks \- A lightweight tunnel proxy
 
 .SH SYNOPSIS
-\fBioserver\fR|\fBioclient\fR|\fBiodns\fR|\fBioredir\fR
+\fBioserver\fR|\fBioclient\fR|\fBioredir\fR
     \-h, \-\-help
     \-c <config_file>
 
 .SH DESCRIPTION
 \fBiosocks\fR is a lightweight tunnel proxy, provides a SOCKS5 proxy, a DNS forwarder and a transparent  TCP  proxy.
 .PP
-\fBiosocks\fR consists of 4 components. \fBioserver\fR runs on a remote server to provide secured tunnel service. \fBioclient\fR is a standard SOCKS5 proxy that trasmits all data to \fBioserver\fR. \fBiodns\fR is a DNS forwarder that transmits all DNS queries to \fBioserver\fR. \fBioredir\fR is a transparent TCP proxy and requires netfilter's NAT function.
+\fBiosocks\fR consists of 3 components. \fBioserver\fR runs on a remote server to provide secured tunnel service. \fBioclient\fR is a standard SOCKS5 proxy that trasmits all data to \fBioserver\fR. \fBioredir\fR is a transparent TCP proxy and requires netfilter's NAT function.
 .PP
 
 .SH OPTIONS
@@ -63,25 +63,6 @@ Local address, default: 127.0.0.1
 .br
 Local port, default: 1080
 
-.SS DNS
-[dns] section defines a DNS server.
-.TP
-.B \fIaddress=\fR
-DNS listen address, default: 127.0.0.1
-.br
-.TP
-.B \fIport=\fR
-.br
-DNS listen port, default: 5300
-.TP
-.B \fIupstream_addr=\fR
-Upstream DNS server address, default: 8.8.8.8
-.br
-.TP
-.B \fIupstream_port=\fR
-.br
-Upstream DNS server port, default: 53
-
 .SS REDIR
 [redir] section define a transparent TCP proxy
 .TP
@@ -118,12 +99,6 @@ Here is a sample config file:
     [local]
     address=127.0.0.1
     port=1080
-
-    [dns]
-    address=127.0.0.1
-    port=53
-    upstream_addr=8.8.8.8
-    upstream_port=53
 
     [redir]
     address=127.0.0.1

@@ -10,24 +10,32 @@ A lightweight tunnel proxy, provides a SOCKS5 proxy, a DNS forwarder and a trans
 
 ## Build ##
 
-### install libev ###
+1. install libev
 
-```bash
-# Archlinux
-sudo pacman -S libev
-# CentOS
-sudo yum install libev-devel
-# Debian/Ubuntu
-sudo apt-get install libev-dev
-```
+	```bash
+	# Archlinux
+	sudo pacman -S libev
+	# CentOS
+	sudo yum install libev-devel
+	# Debian/Ubuntu
+	sudo apt-get install libev-dev
+	```
 
-### make & install ###
+2. configure and make
 
-```bash
-./configure --prefix=/usr
-make
-sudo make install
-```
+	```bash
+	./configure \
+	    --prefix=/usr \
+	    --sysconfdir=/etc \
+	    --localstatedir=/var
+	make
+	```
+
+3. install
+
+	```bash
+	sudo make install
+	```
 
 ## Usage ##
 
@@ -51,16 +59,6 @@ usage: ioclient
   -c <config_file>  config file, see iosocks(8) for its syntax
 ```
 
-**iodns**
-
-A DNS forwarder that transmits all DNS queries throw the tunnel.
-
-```bash
-usage: iodns
-  -h, --help        show this help
-  -c <config_file>  config file, see iosocks(8) for its syntax
-```
-
 **ioredir**
 
 A transparent TCP proxy.
@@ -77,22 +75,16 @@ usage: ioredir
 [server]
 address=192.168.1.1
 port=1205, 80, 443
-key=testkey
+key=key1
 
 [server]
 address=192.168.1.2
 port=1205, 80, 443
-key=testkey2
+key=key2
 
 [local]
 address=127.0.0.1
 port=1080
-
-[dns]
-address=127.0.0.1
-port=5300
-upstream_addr=8.8.8.8
-upstream_port=53
 
 [redir]
 address=127.0.0.1
@@ -124,7 +116,7 @@ These operations can be done automatically if 'iptables=true' is set in config f
 
 ## License ##
 
-Copyright (C) 2014, Xiaoxiao <i@xiaoxiao.im>
+Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

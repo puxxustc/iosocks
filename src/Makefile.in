@@ -86,8 +86,7 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-bin_PROGRAMS = ioserver$(EXEEXT) ioclient$(EXEEXT) iodns$(EXEEXT) \
-	ioredir$(EXEEXT)
+bin_PROGRAMS = ioserver$(EXEEXT) ioclient$(EXEEXT) ioredir$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -106,18 +105,13 @@ am_ioclient_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) \
 ioclient_OBJECTS = $(am_ioclient_OBJECTS)
 am__DEPENDENCIES_1 =
 ioclient_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_iodns_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) iodns.$(OBJEXT) \
-	log.$(OBJEXT) mem.$(OBJEXT) rc4.$(OBJEXT) sha512.$(OBJEXT) \
-	utils.$(OBJEXT)
-iodns_OBJECTS = $(am_iodns_OBJECTS)
-iodns_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_ioredir_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) \
 	ioredir.$(OBJEXT) log.$(OBJEXT) mem.$(OBJEXT) rc4.$(OBJEXT) \
 	sha512.$(OBJEXT) utils.$(OBJEXT)
 ioredir_OBJECTS = $(am_ioredir_OBJECTS)
 ioredir_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_ioserver_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) log.$(OBJEXT) \
-	mem.$(OBJEXT) ioserver.$(OBJEXT) rc4.$(OBJEXT) \
+am_ioserver_OBJECTS = conf.$(OBJEXT) encrypt.$(OBJEXT) \
+	ioserver.$(OBJEXT) log.$(OBJEXT) mem.$(OBJEXT) rc4.$(OBJEXT) \
 	sha512.$(OBJEXT) utils.$(OBJEXT)
 ioserver_OBJECTS = $(am_ioserver_OBJECTS)
 ioserver_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
@@ -149,9 +143,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(ioclient_SOURCES) $(iodns_SOURCES) $(ioredir_SOURCES) \
-	$(ioserver_SOURCES)
-DIST_SOURCES = $(ioclient_SOURCES) $(iodns_SOURCES) $(ioredir_SOURCES) \
+SOURCES = $(ioclient_SOURCES) $(ioredir_SOURCES) $(ioserver_SOURCES)
+DIST_SOURCES = $(ioclient_SOURCES) $(ioredir_SOURCES) \
 	$(ioserver_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
@@ -222,7 +215,6 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-RESOLV_LIBS = @RESOLV_LIBS@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -269,73 +261,20 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AM_CFLAGS = -pipe -W -Wall -Wno-unused-parameter -fno-strict-aliasing -D_GNU_SOURCE
-ioserver_SOURCES = conf.c \
-                   encrypt.c \
-                   log.c \
-                   mem.c \
-                   ioserver.c \
-                   rc4.c \
-                   sha512.c \
-                   utils.c \
-                   conf.h \
-                   encrypt.h \
-                   log.h \
-                   mem.h \
-                   rc4.h \
-                   sha512.h \
-                   utils.h
+AM_CFLAGS = -pipe -W -Wall -fno-strict-aliasing -D_GNU_SOURCE
+ioserver_SOURCES = \
+    conf.c encrypt.c ioserver.c log.c mem.c rc4.c sha512.c utils.c \
+    conf.h encrypt.h log.h mem.h rc4.h sha512.h utils.h
 
 ioserver_LDADD = $(EV_LIBS) $(ANL_LIBS)
-ioclient_SOURCES = conf.c \
-                   encrypt.c \
-                   ioclient.c \
-                   log.c \
-                   mem.c \
-                   rc4.c \
-                   sha512.c \
-                   utils.c \
-                   conf.h \
-                   encrypt.h \
-                   log.h \
-                   mem.h \
-                   rc4.h \
-                   sha512.h \
-                   utils.h
+ioclient_SOURCES = \
+    conf.c encrypt.c ioclient.c log.c mem.c rc4.c sha512.c utils.c \
+    conf.h encrypt.h log.h mem.h rc4.h sha512.h utils.h
 
 ioclient_LDADD = $(EV_LIBS)
-iodns_SOURCES = conf.c \
-                encrypt.c \
-                iodns.c \
-                log.c \
-                mem.c \
-                rc4.c \
-                sha512.c \
-                utils.c \
-                conf.h \
-                encrypt.h \
-                log.h \
-                mem.h \
-                rc4.h \
-                sha512.h \
-                utils.h
-
-iodns_LDADD = $(EV_LIBS) $(RESOLV_LIBS)
-ioredir_SOURCES = conf.c \
-                  encrypt.c \
-                  ioredir.c \
-                  log.c \
-                  mem.c \
-                  rc4.c \
-                  sha512.c \
-                  utils.c \
-                  conf.h \
-                  encrypt.h \
-                  log.h \
-                  mem.h \
-                  rc4.h \
-                  sha512.h \
-                  utils.h
+ioredir_SOURCES = \
+    conf.c encrypt.c ioredir.c log.c mem.c rc4.c sha512.c utils.c \
+    conf.h encrypt.h log.h mem.h rc4.h sha512.h utils.h
 
 ioredir_LDADD = $(EV_LIBS)
 all: all-am
@@ -418,10 +357,6 @@ ioclient$(EXEEXT): $(ioclient_OBJECTS) $(ioclient_DEPENDENCIES) $(EXTRA_ioclient
 	@rm -f ioclient$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(ioclient_OBJECTS) $(ioclient_LDADD) $(LIBS)
 
-iodns$(EXEEXT): $(iodns_OBJECTS) $(iodns_DEPENDENCIES) $(EXTRA_iodns_DEPENDENCIES) 
-	@rm -f iodns$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(iodns_OBJECTS) $(iodns_LDADD) $(LIBS)
-
 ioredir$(EXEEXT): $(ioredir_OBJECTS) $(ioredir_DEPENDENCIES) $(EXTRA_ioredir_DEPENDENCIES) 
 	@rm -f ioredir$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(ioredir_OBJECTS) $(ioredir_LDADD) $(LIBS)
@@ -439,7 +374,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/conf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/encrypt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ioclient.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iodns.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ioredir.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ioserver.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log.Po@am__quote@
