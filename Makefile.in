@@ -154,11 +154,10 @@ am__uninstall_files_from_dir = { \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
 man8dir = $(mandir)/man8
-am__installdirs = "$(DESTDIR)$(man8dir)" \
-	"$(DESTDIR)$(systemdservicedir)"
+am__installdirs = "$(DESTDIR)$(man8dir)" "$(DESTDIR)$(systemddir)"
 NROFF = nroff
 MANS = $(man_MANS)
-DATA = $(systemdservice_DATA)
+DATA = $(systemd_DATA)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 am__recursive_targets = \
@@ -326,10 +325,18 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = src
-EXTRA_DIST = iosocks.8 ioserver@.service ioclient@.service iodns@.service ioredir@.service
-man_MANS = iosocks.8
-systemdservicedir = $(libdir)/systemd/system
-systemdservice_DATA = ioserver@.service ioclient@.service iodns@.service ioredir@.service
+EXTRA_DIST = man/iosocks.8 contrib/systemd/ioserver@.service \
+             contrib/systemd/ioclient@.service \
+             contrib/systemd/iodns@.service \
+             contrib/systemd/ioredir@.service
+
+man_MANS = man/iosocks.8
+systemddir = $(libdir)/systemd/system
+systemd_DATA = contrib/systemd/ioserver@.service \
+             contrib/systemd/ioclient@.service \
+             contrib/systemd/iodns@.service \
+             contrib/systemd/ioredir@.service
+
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -425,27 +432,27 @@ uninstall-man8:
 	} | sed -e 's,.*/,,;h;s,.*\.,,;s,^[^8][0-9a-z]*$$,8,;x' \
 	      -e 's,\.[0-9a-z]*$$,,;$(transform);G;s,\n,.,'`; \
 	dir='$(DESTDIR)$(man8dir)'; $(am__uninstall_files_from_dir)
-install-systemdserviceDATA: $(systemdservice_DATA)
+install-systemdDATA: $(systemd_DATA)
 	@$(NORMAL_INSTALL)
-	@list='$(systemdservice_DATA)'; test -n "$(systemdservicedir)" || list=; \
+	@list='$(systemd_DATA)'; test -n "$(systemddir)" || list=; \
 	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(systemdservicedir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(systemdservicedir)" || exit 1; \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(systemddir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(systemddir)" || exit 1; \
 	fi; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  echo "$$d$$p"; \
 	done | $(am__base_list) | \
 	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(systemdservicedir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(systemdservicedir)" || exit $$?; \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(systemddir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(systemddir)" || exit $$?; \
 	done
 
-uninstall-systemdserviceDATA:
+uninstall-systemdDATA:
 	@$(NORMAL_UNINSTALL)
-	@list='$(systemdservice_DATA)'; test -n "$(systemdservicedir)" || list=; \
+	@list='$(systemd_DATA)'; test -n "$(systemddir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(systemdservicedir)'; $(am__uninstall_files_from_dir)
+	dir='$(DESTDIR)$(systemddir)'; $(am__uninstall_files_from_dir)
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run 'make' without going through this Makefile.
@@ -746,7 +753,7 @@ check: check-recursive
 all-am: Makefile $(MANS) $(DATA) config.h
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(man8dir)" "$(DESTDIR)$(systemdservicedir)"; do \
+	for dir in "$(DESTDIR)$(man8dir)" "$(DESTDIR)$(systemddir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-recursive
@@ -800,7 +807,7 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-man install-systemdserviceDATA
+install-data-am: install-man install-systemdDATA
 
 install-dvi: install-dvi-recursive
 
@@ -846,7 +853,7 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-man uninstall-systemdserviceDATA
+uninstall-am: uninstall-man uninstall-systemdDATA
 
 uninstall-man: uninstall-man8
 
@@ -863,11 +870,11 @@ uninstall-man: uninstall-man8
 	install-exec install-exec-am install-html install-html-am \
 	install-info install-info-am install-man install-man8 \
 	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip install-systemdserviceDATA installcheck \
-	installcheck-am installdirs installdirs-am maintainer-clean \
+	install-strip install-systemdDATA installcheck installcheck-am \
+	installdirs installdirs-am maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-generic pdf \
 	pdf-am ps ps-am tags tags-am uninstall uninstall-am \
-	uninstall-man uninstall-man8 uninstall-systemdserviceDATA
+	uninstall-man uninstall-man8 uninstall-systemdDATA
 
 .PRECIOUS: Makefile
 

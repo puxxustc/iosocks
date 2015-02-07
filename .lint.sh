@@ -2,12 +2,9 @@
 
 set -e
 
-if [ -f Makefile ]; then
-	make distclean
-fi
-
 export CC=/usr/lib/clang-analyzer/scan-build/ccc-analyzer
 ./configure
+
 rm -rf .lint
 scan-build -o .lint -analyze-headers --use-cc=clang make
 cd .lint
@@ -37,3 +34,5 @@ else
 	BUG="${BUG}%20bugs"
 fi
 curl -s -o .lint.svg "https://img.shields.io/badge/lint-${BUG}-${COLOR}.svg?style=flat"
+
+make distclean

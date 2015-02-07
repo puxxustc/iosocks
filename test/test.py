@@ -46,34 +46,6 @@ for cmd in cmds:
 		print('test passed')
 	time.sleep(1)
 
-# Test fails
-cmds = ['curl -o /dev/null --connect-timeout 5 --socks5-hostname 127.0.0.2:1080 https://twitter.lo/',
-        'curl -o /dev/null --connect-timeout 5 --socks5-hostname 127.0.0.2:1080 https://github.lo/',
-        'curl -o /dev/null --connect-timeout 5 --socks5-hostname 127.0.0.2:1080 https://www.facebook.lo/',
-        'curl -o /dev/null --connect-timeout 5 --socks5-hostname 127.0.0.2:1080 https://www.youtube.lo/',
-        'curl -o /dev/null --connect-timeout 5 -4 --socks5 127.0.0.2:1080 https://github.lo/',
-        'curl -o /dev/null --connect-timeout 5 -6 --socks5 127.0.0.2:1080 https://www.facebook.lo/',
-        'curl -o /dev/null --connect-timeout 5 --local-port 2000 https://twitter.lo/',
-        'curl -o /dev/null --connect-timeout 5 --local-port 2001 https://github.lo/',
-        'curl -o /dev/null --connect-timeout 5 --local-port 2002 https://www.facebook.lo/',
-        'curl -o /dev/null --connect-timeout 5 --local-port 2003 https://www.youtube.lo/',
-        'dig @127.0.0.1 -p 5300 twitter.lo',
-        'dig @127.0.0.1 -p 5300 github.lo',
-        'dig @127.0.0.1 -p 5300 www.facebook.lo',
-        'dig @127.0.0.1 -p 5300 www.youtube.lo',
-        'dig @127.0.0.1 -p 5300 twitter.lo',
-        'dig @127.0.0.1 -p 5300 +tcp twitter.lo',
-        'dig @127.0.0.1 -p 5300 +tcp github.lo',
-        'dig @127.0.0.1 -p 5300 +tcp www.facebook.lo',
-        'dig @127.0.0.1 -p 5300 +tcp www.youtube.lo',
-        'dig @127.0.0.1 -p 5300 +tcp twitter.lo']
-
-for cmd in cmds:
-	p5 = Popen(cmd.split(), shell=False, bufsize=0, close_fds=True)
-	if p5 is not None:
-		p5.wait()
-	print('test passed')
-
 for p in [p1, p2, p3, p4]:
 	try:
 		os.kill(p.pid, signal.SIGINT)

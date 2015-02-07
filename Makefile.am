@@ -1,8 +1,14 @@
 SUBDIRS = src
 
-EXTRA_DIST = iosocks.8 ioserver@.service ioclient@.service iodns@.service ioredir@.service
+EXTRA_DIST = man/iosocks.8 contrib/systemd/ioserver@.service \
+             contrib/systemd/ioclient@.service \
+             contrib/systemd/iodns@.service \
+             contrib/systemd/ioredir@.service
 
-man_MANS = iosocks.8
+man_MANS = man/iosocks.8
 
-systemdservicedir=$(libdir)/systemd/system
-systemdservice_DATA = ioserver@.service ioclient@.service iodns@.service ioredir@.service
+systemddir=$(libdir)/systemd/system
+systemd_DATA=contrib/systemd/ioserver@.service \
+             contrib/systemd/ioclient@.service \
+             contrib/systemd/iodns@.service \
+             contrib/systemd/ioredir@.service

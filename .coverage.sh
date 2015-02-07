@@ -2,11 +2,7 @@
 
 set -e
 
-if [ -f Makefile ]; then
-	make distclean
-fi
-rm -f src/*.gcda src/*.gcno src/*.html
-
+export CC=gcc
 ./configure --enable-debug
 make
 
@@ -35,15 +31,20 @@ sudo iptables -t nat -F iosocks
 sudo iptables -t nat -X iosocks
 
 cd src
+rm -f *.html
 gcov *.c
 gcovr -r . --html  --html-details  -o index.html
 cd ..
 
 COVERAGE=$(gcovr -r . | grep TOTAL | awk '{print $4}' | cut -c 1-2)
 if [ ${COVERAGE} -lt 60 ]; then
-	curl -s -o .coverage.svg https://img.shields.io/badge/coverage-${COVERAGE}%-red.svg?style=flat
+	URL="https://img.shields.io/badge/coverage-${COVERAGE}%-red.svg?style=flat"
 elif [ ${COVERAGE} -lt 80 ]; then
-	curl -s -o .coverage.svg https://img.shields.io/badge/coverage-${COVERAGE}%-yellow.svg?style=flat
+	URL="https://img.shields.io/badge/coverage-${COVERAGE}%-yellow.svg?style=flat"
 else
-	curl -s -o .coverage.svg https://img.shields.io/badge/coverage-${COVERAGE}%-green.svg?style=flat
+	URL="https://img.shields.io/badge/coverage-${COVERAGE}%-green.svg?style=flat"
 fi
+curl -s -o .coverage.svg ${URL}
+
+make distclean
+rm -f src/*.gcov src/*.gcda src/*.gcno

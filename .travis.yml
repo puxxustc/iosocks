@@ -13,6 +13,7 @@ before_script:
 script:
     - "./configure --prefix=/usr"
     - "make"
+    - "make DESTDIR=/tmp/dest install"
 branches:
     only:
         - master

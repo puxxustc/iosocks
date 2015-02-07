@@ -1,0 +1,27 @@
+# Maintainer:  Xiaoxiao Pu <i@xiaoxiao.im>
+
+pkgname=iosocks-git
+pkgver=20150207
+pkgrel=1
+pkgdesc="A lightweight tunnel proxy"
+arch=('i686' 'x86_64')
+url="https://github.com/XiaoxiaoPu/iosocks"
+license=('GPL3')
+depends=('libev')
+makedepends=('git')
+source=("git+https://github.com/XiaoxiaoPu/iosocks.git")
+sha256sums=('SKIP')
+
+build() {
+	cd "${srcdir}/iosocks"
+	./configure \
+	  --prefix=/usr \
+	  --sysconfdir=/etc \
+	  --localstatedir=/var
+	make
+}
+
+package() {
+	cd "${srcdir}/iosocks"
+	make DESTDIR="${pkgdir}/" install
+}
