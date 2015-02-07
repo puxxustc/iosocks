@@ -1,6 +1,7 @@
 [Unit]
 Description=IoSocks Client Service
 After=network.target
+Documentation=man:iosocks(8)
 
 [Service]
 Type=simple
