@@ -221,23 +221,31 @@ static int read_conf(const char *file, conf_t *conf)
 		}
 		else
 		{
-			char *p = strchr(conf->server[i].port, ',');
-			while (p != NULL)
+			char *p1 = strchr(conf->server[i].port, ',');
+			if (p1 != NULL)
 			{
-				*p = '\0';
+				*p1 = '\0';
+			}
+			while (p1 != NULL)
+			{
+				char *p2 = strchr(p1 + 1, ',');
+				if (p2 != NULL)
+				{
+					*p2 = '\0';
+				}
 				if (conf->server_num < MAX_SERVER)
 				{
 					_strncpy(conf->server[conf->server_num].address,
 					        conf->server[i].address,
 					        sizeof(conf->server[conf->server_num].address));
-					_strncpy(conf->server[conf->server_num].port, p + 1,
+					_strncpy(conf->server[conf->server_num].port, p1 + 1,
 					        sizeof(conf->server[conf->server_num].port));
 					_strncpy(conf->server[conf->server_num].key,
 					        conf->server[i].address,
 					        sizeof(conf->server[conf->server_num].key));
 					conf->server_num++;
 				}
-				p = strchr(p + 1, ',');
+				p1 = p2;
 			}
 		}
 	}
