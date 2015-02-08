@@ -241,7 +241,7 @@ static int read_conf(const char *file, conf_t *conf)
 					_strncpy(conf->server[conf->server_num].port, p1 + 1,
 					        sizeof(conf->server[conf->server_num].port));
 					_strncpy(conf->server[conf->server_num].key,
-					        conf->server[i].address,
+					        conf->server[i].key,
 					        sizeof(conf->server[conf->server_num].key));
 					conf->server_num++;
 				}
