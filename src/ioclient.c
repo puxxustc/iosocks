@@ -29,8 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 #include "conf.h"
 #include "encrypt.h"
@@ -93,6 +92,7 @@ typedef struct
 	uint8_t tx_buf[BUF_SIZE];
 } ctx_t;
 
+static void timer_cb(EV_P_ ev_timer *w, int revents);
 static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
 static void socks5_recv_cb(EV_P_ ev_io *w, int revents);
@@ -118,7 +118,7 @@ static struct
 	socklen_t addrlen;
 	char *key;
 	size_t key_len;
-	int health;		// 0 可用，<0 不可用
+	time_t health;		// 0 可用，非 0 不可用
 } servers[MAX_SERVER];
 
 int main(int argc, char **argv)
@@ -158,15 +158,6 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	// 初始化 ev_signal
-	struct ev_loop *loop = EV_DEFAULT;
-	ev_signal w_sigint;
-	ev_signal w_sigterm;
-	ev_signal_init(&w_sigint, signal_cb, SIGINT);
-	ev_signal_init(&w_sigterm, signal_cb, SIGTERM);
-	ev_signal_start(EV_A_ &w_sigint);
-	ev_signal_start(EV_A_ &w_sigterm);
-
 	// 初始化本地监听 socket
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
@@ -195,16 +186,29 @@ int main(int argc, char **argv)
 		ERROR("listen");
 		return EXIT_FAILURE;
 	}
+
+	// 初始化 ev
+	struct ev_loop *loop = EV_DEFAULT;
+	ev_signal w_sigint;
+	ev_signal w_sigterm;
+	ev_signal_init(&w_sigint, signal_cb, SIGINT);
+	ev_signal_init(&w_sigterm, signal_cb, SIGTERM);
+	ev_signal_start(EV_A_ &w_sigint);
+	ev_signal_start(EV_A_ &w_sigterm);
 	ev_io w_listen;
 	ev_io_init(&w_listen, accept_cb, sock_listen, EV_READ);
 	ev_io_start(EV_A_ &w_listen);
-	LOG("starting ioclient at %s:%s", conf.local.address, conf.local.port);
+	ev_timer w_timer;
+	ev_timer_init(&w_timer, timer_cb, 5.0, 5.0);
+	ev_timer_start(EV_A_ &w_timer);
 
 	// 切换用户
 	if (setuser(conf.user, conf.group) != 0)
 	{
 		ERROR("setuser");
 	}
+
+	LOG("starting ioclient at %s:%s", conf.local.address, conf.local.port);
 
 	// 执行事件循环
 	ev_run(EV_A_ 0);
@@ -215,6 +219,22 @@ int main(int argc, char **argv)
 	LOG("Exit");
 
 	return EXIT_SUCCESS;
+}
+
+static void timer_cb(EV_P_ ev_timer *w, int revents)
+{
+	UNUSED(loop);
+	UNUSED(w);
+	UNUSED(revents);
+
+	time_t t = time(NULL);
+	for (int i = 0; i < conf.server_num; i++)
+	{
+		if (servers[i].health + 20 < t)
+		{
+			servers[i].health = 0;
+		}
+	}
 }
 
 static void signal_cb(EV_P_ ev_signal *w, int revents)
@@ -512,7 +532,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 	else
 	{
 		// 连接失败
-		servers[ctx->server_id].health = -10;
+		servers[ctx->server_id].health = time(NULL);
 		if (ctx->server_tried < MAX_TRY)
 		{
 			LOG("connect to ioserver failed, try again");
@@ -744,26 +764,30 @@ static int select_server(void)
 {
 	unsigned char rand_num;
 	int id;
-
-	while (1)
+	int tries = 0;
+	while (tries++ < 100)
 	{
 		rand_bytes(&rand_num, sizeof(unsigned char));
 		id = (int)rand_num % conf.server_num;
-		if (servers[id].health >= 0)
+		if (servers[id].health == 0)
 		{
 			return id;
 		}
-		else
-		{
-			servers[id].health++;
-		}
 	}
+	return -1;
 }
 
 static void connect_server(EV_P_ ctx_t *ctx)
 {
 	// 随机选择一个 server
 	ctx->server_id = select_server();
+	if (ctx->server_id < 0)
+	{
+		LOG("no available server, abort");
+		close(ctx->sock_local);
+		mem_delete(ctx);
+		return;
+	}
 	ctx->server_tried++;
 	LOG("connect %s:%s via %s:%s",
 	    ctx->dst_addr, ctx->dst_port,
@@ -808,7 +832,7 @@ static void connect_server(EV_P_ ctx_t *ctx)
 		if (errno != EINPROGRESS)
 		{
 			// 连接失败
-			servers[ctx->server_id].health = -10;
+			servers[ctx->server_id].health = time(NULL);
 			if (ctx->server_tried < MAX_TRY)
 			{
 				LOG("connect to ioserver failed, try again");
