@@ -1,7 +1,7 @@
 # Maintainer:  Xiaoxiao Pu <i@xiaoxiao.im>
 
 pkgname=iosocks-git
-pkgver=20150207
+pkgver=20150208
 pkgrel=1
 pkgdesc="A lightweight tunnel proxy"
 arch=('i686' 'x86_64')
