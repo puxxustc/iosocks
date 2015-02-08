@@ -46,8 +46,8 @@ void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len)
 void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 {
 #if defined(__GNUC__) && defined(USE_ASSEMBLY)
-#if defined(__amd64__) || defined(__x86_64__)
-#define RC4_ASM 1
+#  if defined(__amd64__) || defined(__x86_64__)
+#    define RC4_ASM 1
 	__asm__  (
 		/* 开头未对齐的部分，每次处理 1 字节 */
 		"cmpq %[stream], %[end]\n\t"
@@ -142,8 +142,8 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 		  "[j]"(evp->j)
 		: "memory", "rcx", "rdx", "r8"
 	);
-#elif defined(__i386__)
-#define RC4_ASM 1
+#  elif defined(__i386__)
+#    define RC4_ASM 1
 	__asm__ __volatile__ (
 		"cmpl %[stream], %[end]\n\t"
 		"je 2f\n\t"
@@ -177,8 +177,8 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 		  "[j]"(evp->j)
 		: "memory", "ecx", "edx"
 	);
-#elif defined(__arm__)
-#define RC4_ASM 1
+#  elif defined(__arm__)
+#    define RC4_ASM 1
 	__asm__ __volatile__ (
 		"cmp %[stream], %[end]\n\t"
 		"bcs 2f\n\t"
@@ -213,7 +213,7 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 		  "[j]"(evp->j)
 		: "memory", "r4", "r5", "r6", "r7"
 	);
-#endif
+#  endif
 #endif
 
 #ifndef RC4_ASM

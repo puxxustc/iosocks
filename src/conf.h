@@ -1,5 +1,5 @@
 /*
- * conf.h - parse config file
+ * conf.h - Parse config file
  *
  * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -29,28 +29,27 @@
 
 typedef struct
 {
-	char *user;
-	char *group;
+	char user[16];
+	char group[16];
 	int server_num;
 	struct
 	{
-		char *address;
-		char *port;
-		char *key;
+		char address[128];
+		char port[128];
+		char key[128];
 	} server[MAX_SERVER];
 	struct
 	{
-		char *address;
-		char *port;
+		char address[128];
+		char port[16];
 	} local;
 	struct
 	{
-		char *address;
-		char *port;
-		int iptables;
+		char address[128];
+		char port[16];
 	} redir;
 } conf_t;
 
-extern int read_conf(const char *file, conf_t *conf);
+extern int parse_args(int argc, char **argv, conf_t *conf);
 
 #endif // CONF_H

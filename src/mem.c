@@ -1,5 +1,5 @@
 /*
- * mem.c - memory pool
+ * mem.c - Memory pool
  *
  * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -43,32 +43,34 @@ static struct
 	} cluster[CLUSTER_MAX];
 } mem;
 
-int mem_init(size_t *chunk_size, size_t *chunk_count, size_t cluster_count)
+int mem_reg(size_t chunk_size, size_t chunk_count)
 {
-	if ((cluster_count <= 0) || (cluster_count > CLUSTER_MAX))
+	if (mem.cluster_count >= CLUSTER_MAX)
 	{
 		return -1;
 	}
-	// 对 chunk_size 按升序排序
-	for (size_t i = 1; i < cluster_count; i++)
+	chunk_size = (chunk_size + ALIGN - 1) & ~(ALIGN - 1);
+
+	ssize_t j = (ssize_t)mem.cluster_count - 1;
+	for (; (j >= 0) && (mem.cluster[j].chunk_size > chunk_size); j--)
 	{
-		size_t size = chunk_size[i];
-		size_t count = chunk_count[i];
-		ssize_t j;
-		for (j = (ssize_t)i - 1; (j >= 0) && (chunk_size[j] > size); j--)
-		{
-			chunk_size[j + 1] = chunk_size[j];
-			chunk_count[j + 1] = chunk_count[j];
-		}
-		chunk_size[j + 1] = size;
-		chunk_count[j + 1] = count;
+		mem.cluster[j + 1].chunk_size = mem.cluster[j].chunk_size;
+		mem.cluster[j + 1].chunk_count = mem.cluster[j].chunk_count;
 	}
-	mem.cluster_count = cluster_count;
+	mem.cluster[j + 1].chunk_size = chunk_size;
+	mem.cluster[j + 1].chunk_count = chunk_count;
+
+	mem.cluster_count++;
+	return 0;
+}
+
+int mem_init(void)
+{
+	assert(mem.cluster_count > 0);
+
 	size_t total = 0;
-	for (size_t i = 0; i < cluster_count; i++)
+	for (size_t i = 0; i < mem.cluster_count; i++)
 	{
-		mem.cluster[i].chunk_size = (chunk_size[i] + ALIGN - 1) & ~(ALIGN - 1);
-		mem.cluster[i].chunk_count = chunk_count[i];
 		total += mem.cluster[i].chunk_size * mem.cluster[i].chunk_count;
 	}
 	mem.start = (void *)malloc(total);
@@ -78,9 +80,9 @@ int mem_init(size_t *chunk_size, size_t *chunk_count, size_t cluster_count)
 	}
 	mem.end = mem.start + total;
 	void *p = mem.start;
-	for (size_t i = 0; i < cluster_count; i++)
+	for (size_t i = 0; i < mem.cluster_count; i++)
 	{
-		mem.cluster[i].chunk_ptr = (void **)malloc(sizeof(void *) * chunk_count[i]);
+		mem.cluster[i].chunk_ptr = (void **)malloc(sizeof(void *) * mem.cluster[i].chunk_count);
 		if (mem.cluster[i].chunk_ptr == NULL)
 		{
 			free(mem.start);
@@ -103,6 +105,8 @@ int mem_init(size_t *chunk_size, size_t *chunk_count, size_t cluster_count)
 
 void mem_destroy(void)
 {
+	assert(mem.cluster_count > 0);
+
 	free(mem.start);
 	for (size_t i = 0; i < mem.cluster_count; i++)
 	{
@@ -112,7 +116,7 @@ void mem_destroy(void)
 
 void *mem_new(size_t size)
 {
-	assert(mem.cluster_count != 0);
+	assert(mem.cluster_count > 0);
 
 	// 找一个 chunk 足够大，且有空闲 chunk 的 cluster
 	for (size_t i = 0; i < mem.cluster_count; i++)
@@ -128,7 +132,7 @@ void *mem_new(size_t size)
 
 void mem_delete(void *ptr)
 {
-	assert(mem.cluster_count != 0);
+	assert(mem.cluster_count > 0);
 
 	if ((ptr >= mem.start) && (ptr < mem.end))
 	{

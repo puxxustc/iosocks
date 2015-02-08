@@ -1,4 +1,4 @@
-.TH IOSOCKS 8 "Feb 07, 2015"
+.TH IOSOCKS 8 "Feb 08, 2015"
 .SH NAME
 iosocks \- A lightweight tunnel proxy
 
@@ -8,7 +8,7 @@ iosocks \- A lightweight tunnel proxy
     \-c <config_file>
 
 .SH DESCRIPTION
-\fBiosocks\fR is a lightweight tunnel proxy, provides a SOCKS5 proxy, a DNS forwarder and a transparent  TCP  proxy.
+\fBiosocks\fR is a lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent  TCP  proxy.
 .PP
 \fBiosocks\fR consists of 3 components. \fBioserver\fR runs on a remote server to provide secured tunnel service. \fBioclient\fR is a standard SOCKS5 proxy that trasmits all data to \fBioserver\fR. \fBioredir\fR is a transparent TCP proxy and requires netfilter's NAT function.
 .PP
@@ -73,11 +73,6 @@ Local address, default: 127.0.0.1
 .B \fIport=\fR
 .br
 Local port, default: 1081
-.br
-.TP
-.B \fIiptables=\fR
-.br
-If true, add netfilter rules
 
 .SH EXAMPLE
 Here is a sample config file:
@@ -103,7 +98,6 @@ Here is a sample config file:
     [redir]
     address=127.0.0.1
     port=1081
-    iptables=true
 
 .SH AUTHOR
 .PP

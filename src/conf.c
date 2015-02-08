@@ -26,7 +26,26 @@
 
 #define MAX_LINE 1024
 
-int read_conf(const char *file, conf_t *conf)
+static void help(const char *s)
+{
+	printf("usage: %s\n"
+	       "  -h, --help        show this help\n"
+	       "  -c <config_file>  config file\n",
+	       s);
+}
+
+static void _strncpy(char *dest, const char *src, size_t n)
+{
+	char *end = dest + n;
+	while ((dest < end) && ((*dest = *src) != '\0'))
+	{
+		dest++;
+		src++;
+	}
+	*(end - 1) = '\0';
+}
+
+static int read_conf(const char *file, conf_t *conf)
 {
 	bzero(conf, sizeof(conf_t));
 
@@ -116,19 +135,11 @@ int read_conf(const char *file, conf_t *conf)
 			{
 				if (strcmp(name, "user") == 0)
 				{
-					if (conf->user != NULL)
-					{
-						free(conf->user);
-					}
-					conf->user = strdup(value);
+					_strncpy(conf->user, value, sizeof(conf->user));
 				}
 				else if (strcmp(name, "group") == 0)
 				{
-					if (conf->group != NULL)
-					{
-						free(conf->group);
-					}
-					conf->group = strdup(value);
+					_strncpy(conf->group, value, sizeof(conf->group));
 				}
 			}
 			else if (section == server)
@@ -139,72 +150,42 @@ int read_conf(const char *file, conf_t *conf)
 				}
 				if (strcmp(name, "address") == 0)
 				{
-					if (conf->server[conf->server_num - 1].address != NULL)
-					{
-						free(conf->server[conf->server_num - 1].address);
-					}
-					conf->server[conf->server_num - 1].address = strdup(value);
+					_strncpy(conf->server[conf->server_num - 1].address, value,
+					        sizeof(conf->server[conf->server_num - 1].address));
 				}
 				else if (strcmp(name, "port") == 0)
 				{
-					if (conf->server[conf->server_num - 1].port != NULL)
-					{
-						free(conf->server[conf->server_num - 1].port);
-					}
-					conf->server[conf->server_num - 1].port = strdup(value);
+					_strncpy(conf->server[conf->server_num - 1].port, value,
+					        sizeof(conf->server[conf->server_num - 1].port));
 				}
 				else if (strcmp(name, "key") == 0)
 				{
-					if (conf->server[conf->server_num - 1].key != NULL)
-					{
-						free(conf->server[conf->server_num - 1].key);
-					}
-					conf->server[conf->server_num - 1].key = strdup(value);
+					_strncpy(conf->server[conf->server_num - 1].key, value,
+					        sizeof(conf->server[conf->server_num - 1].key));
 				}
 			}
 			else if (section == local)
 			{
 				if (strcmp(name, "address") == 0)
 				{
-					if (conf->local.address != NULL)
-					{
-						free(conf->local.address);
-					}
-					conf->local.address = strdup(value);
+					_strncpy(conf->local.address, value,
+					        sizeof(conf->local.address));
 				}
 				else if (strcmp(name, "port") == 0)
 				{
-					if (conf->local.port != NULL)
-					{
-						free(conf->local.port);
-					}
-					conf->local.port = strdup(value);
+					_strncpy(conf->local.port, value, sizeof(conf->local.port));
 				}
 			}
 			else if (section == redir)
 			{
 				if (strcmp(name, "address") == 0)
 				{
-					if (conf->redir.address != NULL)
-					{
-						free(conf->redir.address);
-					}
-					conf->redir.address = strdup(value);
+					_strncpy(conf->redir.address, value,
+					        sizeof(conf->redir.address));
 				}
 				else if (strcmp(name, "port") == 0)
 				{
-					if (conf->redir.port != NULL)
-					{
-						free(conf->redir.port);
-					}
-					conf->redir.port = strdup(value);
-				}
-				else if (strcmp(name, "iptables") == 0)
-				{
-					if (strcmp(value, "true") == 0)
-					{
-						conf->redir.iptables = 1;
-					}
+					_strncpy(conf->redir.port, value, sizeof(conf->redir.port));
 				}
 			}
 			else
@@ -217,19 +198,26 @@ int read_conf(const char *file, conf_t *conf)
 	}
 	fclose(f);
 
-	if (conf->user == NULL)
+	if (conf->user[0] == '\0')
 	{
-		conf->user = "nobody";
+		_strncpy(conf->user, "nobody", sizeof(conf->user));
+	}
+	if (conf->server_num == 0)
+	{
+		LOG("no server specified");
+		return -1;
 	}
 	for (int i = 0; i < conf->server_num; i++)
 	{
-		if (conf->server[i].address == NULL)
+		if (conf->server[i].address[0] == '\0')
 		{
-			conf->server[i].address = "0.0.0.0";
+			_strncpy(conf->server[i].address, "0.0.0.0",
+			         sizeof(conf->server[i].address));
 		}
-		if (conf->server[i].port == NULL)
+		if (conf->server[i].port[0] == '\0')
 		{
-			conf->server[i].port = "1205";
+			_strncpy(conf->server[i].port, "1205",
+			         sizeof(conf->server[i].port));
 		}
 		else
 		{
@@ -239,30 +227,85 @@ int read_conf(const char *file, conf_t *conf)
 				*p = '\0';
 				if (conf->server_num < MAX_SERVER)
 				{
-					conf->server[conf->server_num].address = conf->server[i].address;
-					conf->server[conf->server_num].port = p + 1;
-					conf->server[conf->server_num].key = conf->server[i].key;
+					_strncpy(conf->server[conf->server_num].address,
+					        conf->server[i].address,
+					        sizeof(conf->server[conf->server_num].address));
+					_strncpy(conf->server[conf->server_num].port, p + 1,
+					        sizeof(conf->server[conf->server_num].port));
+					_strncpy(conf->server[conf->server_num].key,
+					        conf->server[i].address,
+					        sizeof(conf->server[conf->server_num].key));
 					conf->server_num++;
 				}
 				p = strchr(p + 1, ',');
 			}
 		}
 	}
-	if (conf->local.address == NULL)
+	if (conf->local.address[0] == '\0')
 	{
-		conf->local.address = "127.0.0.1";
+		strcpy(conf->local.address, "127.0.0.1");
 	}
-	if (conf->local.port == NULL)
+	if (conf->local.port[0] == '\0')
 	{
-		conf->local.port = "1080";
+		strcpy(conf->local.port, "1080");
 	}
-	if (conf->redir.address == NULL)
+	if (conf->redir.address[0] == '\0')
 	{
-		conf->redir.address = "127.0.0.1";
+		strcpy(conf->redir.address, "127.0.0.1");
 	}
-	if (conf->redir.port == NULL)
+	if (conf->redir.port[0] == '\0')
 	{
-		conf->redir.port = "1081";
+		strcpy(conf->redir.port, "1081");
+	}
+
+	return 0;
+}
+
+int parse_args(int argc, char **argv, conf_t *conf)
+{
+	const char *conf_file = NULL;
+
+	bzero(conf, sizeof(conf_t));
+
+	for (int i = 1; i < argc; i++)
+	{
+		if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
+		{
+			help(argv[0]);
+			return 0;
+		}
+		else if (strcmp(argv[i], "-c") == 0)
+		{
+			if (i + 2 > argc)
+			{
+				fprintf(stderr, "Invalid option: %s\n", argv[i]);
+				return 1;
+			}
+			conf_file = argv[i + 1];
+			i++;
+		}
+		else
+		{
+			fprintf(stderr, "Invalid option: %s\n", argv[i]);
+			return 1;
+		}
+	}
+	if (conf_file == NULL)
+	{
+		help(argv[0]);
+		return -1;
+	}
+	if (read_conf(conf_file, conf) != 0)
+	{
+		return -1;
+	}
+	for (int i = 0; i < conf->server_num; i++)
+	{
+		if (conf->server[i].key[0] == '\0')
+		{
+			help(argv[0]);
+			return -1;
+		}
 	}
 
 	return 0;

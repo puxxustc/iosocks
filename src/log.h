@@ -25,7 +25,7 @@
 extern void __log(FILE *stream, const char *format, ...);
 extern void __err(const char *msg);
 #define LOG(format, ...)  do{__log(stdout, format, ##__VA_ARGS__);}while(0)
-#define ERR(msg)  do{__err(msg);}while(0)
+#define ERROR(msg)  do{__err(msg);}while(0)
 
 
 #endif // LOG_H

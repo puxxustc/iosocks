@@ -1,5 +1,5 @@
 /*
- * mem.h - memory pool
+ * mem.h - Memory pool
  *
  * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -22,7 +22,8 @@
 
 #include <stddef.h>
 
-extern int   mem_init(size_t *chunk_size, size_t *chunk_count, size_t cluster_count);
+extern int   mem_reg(size_t chunk_size, size_t chunk_count);
+extern int   mem_init(void);
 extern void  mem_destroy(void);
 extern void *mem_new(size_t size);
 extern void  mem_delete(void *ptr);

@@ -6,7 +6,7 @@
 [![Coverage](https://jenkins.xiaoxiao.im/job/iosocks/ws/.coverage.svg)](https://jenkins.xiaoxiao.im/job/iosocks/ws/src/index.html)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/3948/badge.svg)](https://scan.coverity.com/projects/3948)
 
-A lightweight tunnel proxy, provides a SOCKS5 proxy, a DNS forwarder and a transparent TCP proxy.
+A lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent TCP proxy.
 
 ## Build ##
 
@@ -46,7 +46,7 @@ runs on a remote server to provide secured tunnel service.
 ```bash
 usage: ioserver
   -h, --help        show this help
-  -c <config_file>  config file, see iosocks(8) for its syntax
+  -c <config_file>  config file
 ```
 
 **ioclient**
@@ -56,7 +56,7 @@ A standard SOCKS5 proxy.
 ```bash
 usage: ioclient
   -h, --help        show this help
-  -c <config_file>  config file, see iosocks(8) for its syntax
+  -c <config_file>  config file
 ```
 
 **ioredir**
@@ -66,7 +66,7 @@ A transparent TCP proxy.
 ```bash
 usage: ioredir
   -h, --help        show this help
-  -c <config_file>  config file, see iosocks(8) for its syntax
+  -c <config_file>  config file
 ```
 
 **sample config file**
@@ -111,8 +111,6 @@ iptables -t nat -A iosocks -p tcp -j REDIRECT --to-ports 1081
 iptables -t nat -A OUTPUT -p tcp -j iosocks
 iptables -t nat -A PREROUTING -p tcp -j iosocks
 ```
-
-These operations can be done automatically if 'iptables=true' is set in config file. You must remove them manually.
 
 ## License ##
 
