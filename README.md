@@ -10,6 +10,8 @@ A lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent TCP proxy.
 
 ## Build ##
 
+### Build with system-wide libev ###
+
 1. install libev
 
 	```bash
@@ -35,6 +37,37 @@ A lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent TCP proxy.
 
 	```bash
 	sudo make install
+	```
+
+### Build with embeded libev (standalone build) ###
+
+1. configure and make
+
+	```bash
+	./.standalone.sh \
+	    --prefix=/usr \
+	    --sysconfdir=/etc \
+	    --localstatedir=/var
+	```
+
+2. install
+
+	```bash
+	sudo make install
+	```
+
+## Cross compile ##
+
+1. setup cross compile tool chain
+
+2. build
+
+	```bash
+	./.standalone.sh \
+	    --host=arm-unknown-linux-gnueabi \
+	    --prefix=/usr \
+	    --sysconfdir=/etc \
+	    --localstatedir=/var
 	```
 
 ## Usage ##
