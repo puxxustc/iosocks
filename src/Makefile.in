@@ -175,7 +175,6 @@ DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
-ANL_LIBS = @ANL_LIBS@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
@@ -192,7 +191,6 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
-EV_LIBS = @EV_LIBS@
 EXEEXT = @EXEEXT@
 GREP = @GREP@
 INSTALL = @INSTALL@
@@ -203,6 +201,8 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
+LIBS_ANL = @LIBS_ANL@
+LIBS_EV = @LIBS_EV@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
@@ -266,17 +266,17 @@ ioserver_SOURCES = \
     conf.c encrypt.c ioserver.c log.c mem.c rc4.c sha512.c utils.c \
     conf.h encrypt.h log.h mem.h rc4.h sha512.h utils.h
 
-ioserver_LDADD = $(EV_LIBS) $(ANL_LIBS)
+ioserver_LDADD = $(LIBS_EV) $(LIBS_ANL)
 ioclient_SOURCES = \
     conf.c encrypt.c ioclient.c log.c mem.c rc4.c sha512.c utils.c \
     conf.h encrypt.h log.h mem.h rc4.h sha512.h utils.h
 
-ioclient_LDADD = $(EV_LIBS)
+ioclient_LDADD = $(LIBS_EV)
 ioredir_SOURCES = \
     conf.c encrypt.c ioredir.c log.c mem.c rc4.c sha512.c utils.c \
     conf.h encrypt.h log.h mem.h rc4.h sha512.h utils.h
 
-ioredir_LDADD = $(EV_LIBS)
+ioredir_LDADD = $(LIBS_EV)
 all: all-am
 
 .SUFFIXES:

@@ -1,8 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.69])
-AC_INIT([iosocks], [1.2.1], [i@xiaoxiao.im], [iosocks], [https://github.com/XiaoxiaoPu/iosocks])
+AC_INIT([iosocks], [1.2.2], [https://github.com/XiaoxiaoPu/iosocks/issues], [iosocks], [https://github.com/XiaoxiaoPu/iosocks])
 AC_CONFIG_SRCDIR([iosocks])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
@@ -40,10 +39,10 @@ AC_ARG_ENABLE(
 AM_CONDITIONAL(DEBUG, test x"$debug" = x"true")
 
 # Checks for libraries.
-ANL_LIBS="-lanl"
-EV_LIBS="-lev"
-AC_CHECK_LIB([anl], [getaddrinfo_a], [AC_SUBST(ANL_LIBS)])
-AC_CHECK_LIB([ev], [ev_default_loop], [AC_SUBST(EV_LIBS)])
+LIBS_ANL="-lanl"
+LIBS_EV="-lev"
+AC_CHECK_LIB([anl], [getaddrinfo_a], [AC_SUBST(LIBS_ANL)])
+AC_CHECK_LIB([ev], [ev_default_loop], [AC_SUBST(LIBS_EV)])
 
 # Checks for header files.
 AC_HEADER_ASSERT
