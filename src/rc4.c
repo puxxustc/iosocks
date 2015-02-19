@@ -136,7 +136,7 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 		: [i] "=a"(evp->i),
 		  [j] "=b"(evp->j)
 		: [stream] "r"(stream),
-		  [end] "r"(stream+ len),
+		  [end] "r"(stream + len),
 		  [s] "r"(evp->s),
 		  "[i]"(evp->i),
 		  "[j]"(evp->j)
@@ -171,7 +171,7 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 		: [i] "=a"(evp->i),
 		  [j] "=b"(evp->j)
 		: [stream] "r"(stream),
-		  [end] "r"(stream+ len),
+		  [end] "g"(stream + len),
 		  [s] "r"(evp->s),
 		  "[i]"(evp->i),
 		  "[j]"(evp->j)
@@ -207,7 +207,7 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 		: [i] "=r"(evp->i),
 		  [j] "=r"(evp->j)
 		: [stream] "r"(stream),
-		  [end] "r"(stream+ len),
+		  [end] "r"(stream + len),
 		  [s] "r"(evp->s),
 		  "[i]"(evp->i),
 		  "[j]"(evp->j)
