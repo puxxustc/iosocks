@@ -4,11 +4,9 @@ After=network.target
 Documentation=man:iosocks(8)
 
 [Service]
-Type=simple
-ExecStart=/usr/bin/ioredir -c /etc/iosocks/%i.conf
-KillSignal=SIGINT
-Restart=on-failure
-RestartSec=3
+Type=forking
+ExecStart=/usr/bin/ioredir -d -c /etc/iosocks/%i.conf --pidfile /run/ioredir.pid --logfile /var/log/ioredir.log
+PIDFile=/run/ioredir.pid
 
 [Install]
 WantedBy=multi-user.target

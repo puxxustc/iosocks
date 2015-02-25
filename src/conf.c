@@ -22,15 +22,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include "conf.h"
-#include "log.h"
 
 #define MAX_LINE 1024
 
 static void help(const char *s)
 {
 	printf("usage: %s\n"
-	       "  -h, --help        show this help\n"
-	       "  -c <config_file>  config file\n",
+	       "  -h, --help            show this help\n"
+	       "  -c, --config <file>   config file\n"
+	       "  -d, --daemon          daemonize after initialization\n"
+	       "  -p, --pidfile <file>  PID file\n"
+	       "  --logfile <file>      log file\n",
 	       s);
 }
 
@@ -47,12 +49,10 @@ static void _strncpy(char *dest, const char *src, size_t n)
 
 static int read_conf(const char *file, conf_t *conf)
 {
-	bzero(conf, sizeof(conf_t));
-
 	FILE *f = fopen(file, "rb");
 	if (f == NULL)
 	{
-		LOG("failed to read conf file");
+		fprintf(stderr, "failed to read conf file\n");
 		return -1;
 	}
 
@@ -114,7 +114,7 @@ static int read_conf(const char *file, conf_t *conf)
 			}
 			else
 			{
-				LOG("parse conf file failed at line: %d", line_num);
+				fprintf(stderr, "parse conf file failed at line: %d\n", line_num);
 				fclose(f);
 				return -1;
 			}
@@ -124,7 +124,7 @@ static int read_conf(const char *file, conf_t *conf)
 			char *p = strchr(line, '=');
 			if (p == NULL)
 			{
-				LOG("parse conf file failed at line: %d", line_num);
+				fprintf(stderr, "parse conf file failed at line: %d\n", line_num);
 				fclose(f);
 				return -1;
 			}
@@ -190,7 +190,7 @@ static int read_conf(const char *file, conf_t *conf)
 			}
 			else
 			{
-				LOG("parse conf file failed at line: %d", line_num);
+				fprintf(stderr, "parse conf file failed at line: %d\n", line_num);
 				fclose(f);
 				return -1;
 			}
@@ -204,7 +204,7 @@ static int read_conf(const char *file, conf_t *conf)
 	}
 	if (conf->server_num == 0)
 	{
-		LOG("no server specified");
+		fprintf(stderr, "no server specified\n");
 		return -1;
 	}
 	for (int i = 0; i < conf->server_num; i++)
@@ -277,19 +277,43 @@ int parse_args(int argc, char **argv, conf_t *conf)
 
 	for (int i = 1; i < argc; i++)
 	{
-		if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help"))
+		if ((strcmp(argv[i], "-h") == 0) || (strcmp(argv[i], "--help") == 0))
 		{
 			help(argv[0]);
-			return 0;
+			return -1;
 		}
-		else if (strcmp(argv[i], "-c") == 0)
+		else if ((strcmp(argv[i], "-c") == 0) || (strcmp(argv[i], "--config") == 0))
 		{
 			if (i + 2 > argc)
 			{
-				fprintf(stderr, "Invalid option: %s\n", argv[i]);
+				fprintf(stderr, "Missing filename after '%s'\n", argv[i]);
 				return 1;
 			}
 			conf_file = argv[i + 1];
+			i++;
+		}
+		else if ((strcmp(argv[i], "-d") == 0) || (strcmp(argv[i], "--daemon") == 0))
+		{
+			conf->daemon = 1;
+		}
+		else if ((strcmp(argv[i], "-p") == 0) || (strcmp(argv[i], "--pidfile") == 0))
+		{
+			if (i + 2 > argc)
+			{
+				fprintf(stderr, "Missing filename after '%s'\n", argv[i]);
+				return 1;
+			}
+			_strncpy(conf->pidfile, argv[i + 1], sizeof(conf->pidfile));
+			i++;
+		}
+		else if (strcmp(argv[i], "--logfile") == 0)
+		{
+			if (i + 2 > argc)
+			{
+				fprintf(stderr, "Missing filename after '%s'\n", argv[i]);
+				return 1;
+			}
+			_strncpy(conf->logfile, argv[i + 1], sizeof(conf->logfile));
 			i++;
 		}
 		else
@@ -302,6 +326,19 @@ int parse_args(int argc, char **argv, conf_t *conf)
 	{
 		help(argv[0]);
 		return -1;
+	}
+	if (conf->daemon)
+	{
+		if (conf->pidfile[0] == '\0')
+		{
+			fprintf(stderr, "no pidfile specified\n");
+			return -1;
+		}
+		if (conf->logfile[0] == '\0')
+		{
+			fprintf(stderr, "no logfile specified\n");
+			return -1;
+		}
 	}
 	if (read_conf(conf_file, conf) != 0)
 	{

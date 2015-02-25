@@ -111,6 +111,15 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
+	// Daemonize
+	if (conf.daemon)
+	{
+		if (daemonize(conf.pidfile, conf.logfile) != 0)
+		{
+			return -1;
+		}
+	}
+
 	// 服务器信息
 	struct addrinfo hints;
 	struct addrinfo *res;

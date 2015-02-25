@@ -29,9 +29,12 @@
 
 typedef struct
 {
+	int server_num;
+	int daemon;
 	char user[16];
 	char group[16];
-	int server_num;
+	char pidfile[64];
+	char logfile[64];
 	struct
 	{
 		char address[128];

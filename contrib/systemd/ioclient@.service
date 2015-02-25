@@ -4,11 +4,9 @@ After=network.target
 Documentation=man:iosocks(8)
 
 [Service]
-Type=simple
-ExecStart=/usr/bin/ioclient -c /etc/iosocks/%i.conf
-KillSignal=SIGINT
-Restart=on-failure
-RestartSec=3
+Type=forking
+ExecStart=/usr/bin/ioclient -d -c /etc/iosocks/%i.conf --pidfile /run/ioclient.pid --logfile /var/log/ioclient.log
+PIDFile=/run/ioclient.pid
 
 [Install]
 WantedBy=multi-user.target

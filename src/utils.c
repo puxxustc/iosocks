@@ -18,6 +18,7 @@
  */
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
 #include <linux/if.h>
@@ -25,13 +26,31 @@
 #include <linux/netfilter_ipv6/ip6_tables.h>
 #include <pwd.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include "utils.h"
 
 #ifndef IP6T_SO_ORIGINAL_DST
-#define IP6T_SO_ORIGINAL_DST 80
+#  define IP6T_SO_ORIGINAL_DST 80
 #endif
+
+ssize_t rand_bytes(void *stream, size_t len)
+{
+	static int urand = -1;
+	if (urand == -1)
+	{
+		urand = open("/dev/urandom", O_RDONLY, 0);
+	}
+	if (urand < 0)
+	{
+		return -1;
+	}
+	return read(urand, stream, len);
+}
 
 int setnonblock(int fd)
 {
@@ -144,16 +163,53 @@ int setuser(const char *user, const char *group)
 	return 0;
 }
 
-ssize_t rand_bytes(void *stream, size_t len)
+int daemonize(const char *pidfile, const char *logfile)
 {
-	static int urand = -1;
-	if (urand == -1)
+	pid_t pid;
+
+	pid = fork();
+	if (pid < 0)
 	{
-		urand = open("/dev/urandom", O_RDONLY, 0);
-	}
-	if (urand < 0)
-	{
+		fprintf(stderr, "fork: %s\n", strerror(errno));
 		return -1;
 	}
-	return read(urand, stream, len);
+
+	if (pid > 0)
+	{
+		FILE *fp = fopen(pidfile, "w");
+		if (fp == NULL)
+		{
+			fprintf(stderr, "Invalid pid file\n");
+		}
+		else
+		{
+			fprintf(fp, "%d", pid);
+			fclose(fp);
+		}
+		exit(EXIT_SUCCESS);
+	}
+
+	umask(0);
+
+	if (setsid() < 0)
+	{
+		fprintf(stderr, "setsid: %s\n", strerror(errno));
+		return -1;
+	}
+
+	fclose(stdin);
+	FILE *fp;
+	fp = freopen(logfile, "w", stdout);
+	if (fp == NULL)
+	{
+		fprintf(stderr, "freopen: %s\n", strerror(errno));
+		return -1;
+	}
+	fp = freopen(logfile, "w", stderr);
+	if (fp == NULL)
+	{
+		fprintf(stderr, "freopen: %s\n", strerror(errno));
+		return -1;
+	}
+	return 0;
 }

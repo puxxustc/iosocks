@@ -22,6 +22,7 @@
 
 #include <sys/socket.h>
 
+extern ssize_t rand_bytes(void *stream, size_t len);
 extern int setnonblock(int fd);
 extern int settimeout(int fd);
 extern int setreuseaddr(int fd);
@@ -29,6 +30,6 @@ extern int setkeepalive(int fd);
 extern int getdestaddr(int fd, struct sockaddr *addr, socklen_t *addrlen);
 extern int geterror(int fd);
 extern int setuser(const char *user, const char *group);
-extern ssize_t rand_bytes(void *stream, size_t len);
+extern int daemonize(const char *pidfile, const char *logfile);
 
 #endif // UTILS_H

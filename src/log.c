@@ -36,6 +36,7 @@ void __log(FILE *stream, const char *format, ...)
 	vfprintf(stream, format, args);
 	va_end(args);
 	putchar('\n');
+	fflush(stream);
 }
 
 void __err(const char *msg)

@@ -1,11 +1,14 @@
-.TH IOSOCKS 8 "Feb 08, 2015"
+.TH IOSOCKS 8 "Feb 25, 2015"
 .SH NAME
 iosocks \- A lightweight tunnel proxy
 
 .SH SYNOPSIS
 \fBioserver\fR|\fBioclient\fR|\fBioredir\fR
     \-h, \-\-help
-    \-c <config_file>
+    \-c, \-\-config <file>   config file
+    \-d, \-\-daemon          daemonize after initialization
+    \-p, \-\-pidfile <file>  PID file
+    \-\-logfile <file>      log file
 
 .SH DESCRIPTION
 \fBiosocks\fR is a lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent  TCP  proxy.
@@ -15,11 +18,20 @@ iosocks \- A lightweight tunnel proxy
 
 .SH OPTIONS
 .TP
-.B \-c \fI<config_file>\fR
-Config file.
-.TP
 .B \-h, \-\-help
 Print a help message and exit.
+.TP
+.B \-c, \-\-config \fI<file>\fR
+Config file.
+.TP
+.B \-d, \-\-daemon
+Daemonize after initialization.
+.TP
+.B \-p, \-\-pidfile \fI<file>\fR
+PID file.
+.TP
+.B \-\-logfile \fI<file>\fR
+Log file.
 
 .SH CONFIG FILE
 The syntax of the config file is inspired by Microsoft Windows \fI.ini\fP files.
