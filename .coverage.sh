@@ -3,7 +3,7 @@
 set -e
 
 export CC=gcc
-./configure --enable-debug
+./configure --enable-debug --enable-coverage
 make
 
 sudo iptables -t nat -N iosocks

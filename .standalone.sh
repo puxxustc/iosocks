@@ -19,8 +19,8 @@ if [ -f Makefile ]; then
 	make
 fi
 cd ..
-sed -i 's/$(EV_LIBS)//g' src/Makefile.am
-autoreconf -i
+sed -i 's/$(LIB_EV)//g' src/Makefile.am
+autoreconf -if
 _CFLAGS="${CFLAGS}"
 _LIBS="${LIBS}"
 export CFLAGS="${CFLAGS} -I $(pwd)/libev"
@@ -32,4 +32,4 @@ fi
 CFLAGS="${_CFLAGS}"
 LIBS="${_LIBS}"
 rm -rf libev
-git checkout HEAD src/Makefile.am src/Makefile.in
+git checkout HEAD src/Makefile.am

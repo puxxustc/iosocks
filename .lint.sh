@@ -3,7 +3,7 @@
 set -e
 
 export CC=/usr/lib/clang-analyzer/scan-build/ccc-analyzer
-./configure
+./configure --enable-debug
 
 rm -rf .lint
 scan-build -o .lint -analyze-headers --use-cc=clang make

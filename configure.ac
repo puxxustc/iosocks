@@ -13,36 +13,22 @@ AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 AC_PROG_CC_C99
 AC_PROG_INSTALL
 
-AC_ARG_ENABLE(
-    [assembly],
-    [AS_HELP_STRING([--disable-assembly], [disable inline assembly])],
-    [
-        case "${enableval}" in
-            yes) assembly=true ;;
-            no)  assembly=false ;;
-            *)   AC_MSG_ERROR(bad value ${enableval} for --disable-assembly) ;;
-        esac
-    ],
-    [assembly=true]
-)
-if test "${assembly}" = "true" ; then
-    AC_DEFINE([USE_ASSEMBLY], [1], [Use assembly to boost RC4])
-fi
-
+# Custom options
 AC_ARG_ENABLE(
     [debug],
     [AS_HELP_STRING([--enable-debug], [build with additional debugging code])],
-    [
-        CFLAGS='-g -DDEBUG -fprofile-arcs -ftest-coverage -O0'
-    ]
-)
+    [CFLAGS="$CFLAGS -g -DDEBUG -O0"])
 AM_CONDITIONAL(DEBUG, test x"$debug" = x"true")
+AC_ARG_ENABLE(
+    [coverage],
+    [AS_HELP_STRING([--enable-coverage], [enable coverage analysis])],
+    [CFLAGS="$CFLAGS -fprofile-arcs -ftest-coverage"])
 
 # Checks for libraries.
-LIBS_ANL="-lanl"
-LIBS_EV="-lev"
-AC_CHECK_LIB([anl], [getaddrinfo_a], [AC_SUBST(LIBS_ANL)])
-AC_CHECK_LIB([ev], [ev_default_loop], [AC_SUBST(LIBS_EV)])
+LIB_ANL="-lanl"
+LIB_EV="-lev"
+AC_CHECK_LIB([anl], [getaddrinfo_a], [AC_SUBST(LIB_ANL)])
+AC_CHECK_LIB([ev], [ev_default_loop], [AC_SUBST(LIB_EV)])
 
 # Checks for header files.
 AC_HEADER_ASSERT

@@ -4,7 +4,6 @@
 [![License](https://img.shields.io/badge/license-GPL%203-blue.svg?style=flat)](http://www.gnu.org/licenses/gpl.html)
 [![Build Status](https://travis-ci.org/XiaoxiaoPu/iosocks.svg?branch=master)](https://travis-ci.org/XiaoxiaoPu/iosocks)
 [![Coverage](https://jenkins.xiaoxiao.im/job/iosocks/ws/.coverage.svg)](https://jenkins.xiaoxiao.im/job/iosocks/ws/src/index.html)
-[![Coverity Scan Build Status](https://scan.coverity.com/projects/3948/badge.svg)](https://scan.coverity.com/projects/3948)
 
 A lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent TCP proxy.
 
@@ -26,10 +25,8 @@ A lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent TCP proxy.
 2. configure and make
 
 	```bash
-	./configure \
-	    --prefix=/usr \
-	    --sysconfdir=/etc \
-	    --localstatedir=/var
+	autoreconf -if
+	./configure --prefix=/usr --sysconfdir=/etc
 	make
 	```
 
@@ -44,10 +41,8 @@ A lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent TCP proxy.
 1. configure and make
 
 	```bash
-	./.standalone.sh \
-	    --prefix=/usr \
-	    --sysconfdir=/etc \
-	    --localstatedir=/var
+	autoreconf -if
+	./.standalone.sh --prefix=/usr --sysconfdir=/etc
 	```
 
 2. install
@@ -63,11 +58,9 @@ A lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent TCP proxy.
 2. build
 
 	```bash
-	./.standalone.sh \
-	    --host=arm-unknown-linux-gnueabi \
-	    --prefix=/usr \
-	    --sysconfdir=/etc \
-	    --localstatedir=/var
+	autoreconf -if
+	./.standalone.sh --host=arm-unknown-linux-gnueabihf \
+	    --prefix=/usr --sysconfdir=/etc
 	```
 
 ## Usage ##
