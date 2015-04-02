@@ -29,7 +29,7 @@ extern int setreuseaddr(int fd);
 extern int setkeepalive(int fd);
 extern int getdestaddr(int fd, struct sockaddr *addr, socklen_t *addrlen);
 extern int geterror(int fd);
-extern int setuser(const char *user, const char *group);
+extern int runas(const char *user);
 extern int daemonize(const char *pidfile, const char *logfile);
 
 #endif // UTILS_H

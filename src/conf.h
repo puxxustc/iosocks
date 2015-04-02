@@ -1,5 +1,5 @@
 /*
- * conf.h - Parse config file
+ * conf.h - parse config file
  *
  * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -23,16 +23,11 @@
 // 最大服务器数
 #define MAX_SERVER 16
 
-#define IOSERVER_CONN	128
-#define IOCLIENT_CONN	64
-#define IOREDIR_CONN	64
-
 typedef struct
 {
 	int server_num;
 	int daemon;
 	char user[16];
-	char group[16];
 	char pidfile[64];
 	char logfile[64];
 	struct

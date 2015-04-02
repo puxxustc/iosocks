@@ -125,41 +125,27 @@ int geterror(int fd)
 	return error;
 }
 
-int setuser(const char *user, const char *group)
+int runas(const char *user)
 {
 	struct passwd *pw_ent = NULL;
-	struct group *gr_ent = NULL;
-	uid_t uid = 0;
-	gid_t gid = 0;
 
 	if (user != NULL)
 	{
 		pw_ent = getpwnam(user);
 	}
-	if (group != NULL)
-	{
-		gr_ent = getgrnam(group);
-	}
 
 	if (pw_ent != NULL)
 	{
-		uid = pw_ent->pw_uid;
-		gid = pw_ent->pw_gid;
+		if (setregid(pw_ent->pw_gid, pw_ent->pw_gid) != 0)
+		{
+			return -1;
+		}
+		if (setreuid(pw_ent->pw_uid, pw_ent->pw_uid) != 0)
+		{
+			return -1;
+		}
 	}
 
-	if (gr_ent != NULL)
-	{
-		gid = gr_ent->gr_gid;
-	}
-
-	if (setregid(gid, gid) != 0)
-	{
-		return -1;
-	}
-	if (setreuid(uid, uid) != 0)
-	{
-		return -1;
-	}
 	return 0;
 }
 

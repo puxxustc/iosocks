@@ -34,7 +34,6 @@
 #include "conf.h"
 #include "encrypt.h"
 #include "log.h"
-#include "mem.h"
 #include "sha512.h"
 #include "utils.h"
 
@@ -141,14 +140,6 @@ int main(int argc, char **argv)
 		freeaddrinfo(res);
 	}
 
-	// 初始化内存池
-	mem_reg(sizeof(ctx_t), IOREDIR_CONN);
-	if (mem_init() != 0)
-	{
-		LOG("Out of memory");
-		return EXIT_FAILURE;
-	}
-
 	// 初始化本地监听 socket
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_family = AF_INET;
@@ -194,9 +185,9 @@ int main(int argc, char **argv)
 	ev_timer_start(EV_A_ &w_timer);
 
 	// 切换用户
-	if (setuser(conf.user, conf.group) != 0)
+	if (runas(conf.user) != 0)
 	{
-		ERROR("setuser");
+		ERROR("runas");
 	}
 
 	LOG("starting ioredir at %s:%s", conf.redir.address, conf.redir.port);
@@ -206,7 +197,6 @@ int main(int argc, char **argv)
 
 	// 退出
 	close(sock_listen);
-	mem_destroy();
 	LOG("Exit");
 
 	return EXIT_SUCCESS;
@@ -239,7 +229,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 {
 	UNUSED(revents);
 
-	ctx_t *ctx = (ctx_t *)mem_new(sizeof(ctx_t));
+	ctx_t *ctx = (ctx_t *)malloc(sizeof(ctx_t));
 	if (ctx == NULL)
 	{
 		LOG("out of memory");
@@ -249,7 +239,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	if (ctx->sock_local < 0)
 	{
 		ERROR("accept");
-		mem_delete(ctx);
+		free(ctx);
 		return;
 	}
 	setnonblock(ctx->sock_local);
@@ -263,7 +253,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	{
 		ERROR("getdestaddr");
 		close(ctx->sock_local);
-		mem_delete(ctx);
+		free(ctx);
 		return;
 	}
 	if (addr.ss_family == AF_INET)
@@ -312,7 +302,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 			LOG("connect to ioserver failed, abort");
 			close(ctx->sock_local);
 			close(ctx->sock_remote);
-			mem_delete(ctx);
+			free(ctx);
 		}
 	}
 }
@@ -335,7 +325,7 @@ static void iosocks_send_cb(EV_P_ ev_io *w, int revents)
 		}
 		close(ctx->sock_local);
 		close(ctx->sock_remote);
-		mem_delete(ctx);
+		free(ctx);
 		return;
 	}
 
@@ -533,7 +523,7 @@ static void connect_server(EV_P_ ctx_t *ctx)
 	{
 		LOG("no available server, abort");
 		close(ctx->sock_local);
-		mem_delete(ctx);
+		free(ctx);
 		return;
 	}
 	ctx->server_tried++;
@@ -567,7 +557,7 @@ static void connect_server(EV_P_ ctx_t *ctx)
 	{
 		ERROR("socket");
 		close(ctx->sock_local);
-		mem_delete(ctx);
+		free(ctx);
 		return;
 	}
 	setnonblock(ctx->sock_remote);
@@ -592,7 +582,7 @@ static void connect_server(EV_P_ ctx_t *ctx)
 				LOG("connect to ioserver failed, abort");
 				close(ctx->sock_local);
 				close(ctx->sock_remote);
-				mem_delete(ctx);
+				free(ctx);
 			}
 			return;
 		}
@@ -610,5 +600,5 @@ static void cleanup(EV_P_ ctx_t *ctx)
 	ev_io_stop(EV_A_ &ctx->w_remote_write);
 	close(ctx->sock_local);
 	close(ctx->sock_remote);
-	mem_delete(ctx);
+	free(ctx);
 }

@@ -138,10 +138,6 @@ static int read_conf(const char *file, conf_t *conf)
 				{
 					my_strcpy(conf->user, value);
 				}
-				else if (strcmp(name, "group") == 0)
-				{
-					my_strcpy(conf->group, value);
-				}
 			}
 			else if (section == server)
 			{

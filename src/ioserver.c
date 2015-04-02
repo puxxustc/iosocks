@@ -36,7 +36,6 @@
 #include "conf.h"
 #include "encrypt.h"
 #include "log.h"
-#include "mem.h"
 #include "sha512.h"
 #include "utils.h"
 
@@ -136,14 +135,6 @@ int main(int argc, char **argv)
 		servers[i].key_len = strlen(servers[i].key);
 	}
 
-	// 初始化内存池
-	mem_reg(sizeof(ctx_t), IOSERVER_CONN);
-	if (mem_init() != 0)
-	{
-		LOG("Out of memory");
-		return 2;
-	}
-
 	// 初始化 ev_signal
 	loop = EV_DEFAULT;
 	ev_signal w_sigint;
@@ -205,9 +196,9 @@ int main(int argc, char **argv)
 	}
 
 	// 切换用户
-	if (setuser(conf.user, conf.group) != 0)
+	if (runas(conf.user) != 0)
 	{
-		ERROR("setuser");
+		ERROR("runas");
 	}
 
 	// 执行事件循环
@@ -215,7 +206,6 @@ int main(int argc, char **argv)
 
 	// 退出
 	LOG("Exit");
-	mem_destroy();
 	for (int i = 0; i < conf.server_num; i++)
 	{
 		close(sock_listen[i]);
@@ -235,7 +225,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 {
 	UNUSED(revents);
 
-	ctx_t *ctx = (ctx_t *)mem_new(sizeof(ctx_t));
+	ctx_t *ctx = (ctx_t *)malloc(sizeof(ctx_t));
 	if (ctx == NULL)
 	{
 		LOG("out of memory");
@@ -245,7 +235,7 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	if (ctx->sock_local < 0)
 	{
 		ERROR("accept");
-		mem_delete(ctx);
+		free(ctx);
 		return;
 	}
 	setnonblock(ctx->sock_local);
@@ -278,7 +268,7 @@ static void iosocks_recv_cb(EV_P_ ev_io *w, int revents)
 			LOG("bad client");
 		}
 		close(ctx->sock_local);
-		mem_delete(ctx);
+		free(ctx);
 		return;
 	}
 
@@ -298,7 +288,7 @@ static void iosocks_recv_cb(EV_P_ ev_io *w, int revents)
 	{
 		LOG("illegal client");
 		close(ctx->sock_local);
-		mem_delete(ctx);
+		free(ctx);
 		return;
 	}
 	char *host = (char *)ctx->tx_buf + 4;
@@ -331,7 +321,7 @@ static void emit_resolv(ctx_t *ctx)
 	{
 		ERROR("getaddrinfo_a");
 		close(ctx->sock_local);
-		mem_delete(ctx);
+		free(ctx);
 		return;
 	}
 	ctx->resolv_tried++;
@@ -354,7 +344,7 @@ static void resolv_cb(int signo, siginfo_t *info, void *context)
 		{
 			ERROR("socket");
 			close(ctx->sock_local);
-			mem_delete(ctx);
+			free(ctx);
 			return;
 		}
 		setnonblock(ctx->sock_remote);
@@ -377,7 +367,7 @@ static void resolv_cb(int signo, siginfo_t *info, void *context)
 		{
 			LOG("failed to resolv host: %s, abort", ctx->gai->host);
 			close(ctx->sock_local);
-			mem_delete(ctx);
+			free(ctx);
 		}
 	}
 }
@@ -430,7 +420,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 				ERROR("socket");
 				close(ctx->sock_local);
 				freeaddrinfo(ctx->gai->req.ar_result);
-				mem_delete(ctx);
+				free(ctx);
 				return;
 			}
 			setnonblock(ctx->sock_remote);
@@ -447,7 +437,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 			LOG("connect failed");
 			close(ctx->sock_local);
 			freeaddrinfo(ctx->gai->req.ar_result);
-			mem_delete(ctx);
+			free(ctx);
 		}
 	}
 }
@@ -620,5 +610,5 @@ static void cleanup(EV_P_ ctx_t *ctx)
 	ev_io_stop(EV_A_ &ctx->w_remote_write);
 	close(ctx->sock_local);
 	close(ctx->sock_remote);
-	mem_delete(ctx);
+	free(ctx);
 }
