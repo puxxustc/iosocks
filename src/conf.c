@@ -36,6 +36,7 @@ static void help(const char *s)
 	       s);
 }
 
+#define my_strcpy(dest, src) _strncpy(dest, src, sizeof(dest))
 static void _strncpy(char *dest, const char *src, size_t n)
 {
 	char *end = dest + n;
@@ -114,7 +115,7 @@ static int read_conf(const char *file, conf_t *conf)
 			}
 			else
 			{
-				fprintf(stderr, "parse conf file failed at line: %d\n", line_num);
+				fprintf(stderr, "line %d: wrong section\n", line_num);
 				fclose(f);
 				return -1;
 			}
@@ -124,7 +125,7 @@ static int read_conf(const char *file, conf_t *conf)
 			char *p = strchr(line, '=');
 			if (p == NULL)
 			{
-				fprintf(stderr, "parse conf file failed at line: %d\n", line_num);
+				fprintf(stderr, "line %d: no \'=\\ found\n", line_num);
 				fclose(f);
 				return -1;
 			}
@@ -135,11 +136,11 @@ static int read_conf(const char *file, conf_t *conf)
 			{
 				if (strcmp(name, "user") == 0)
 				{
-					_strncpy(conf->user, value, sizeof(conf->user));
+					my_strcpy(conf->user, value);
 				}
 				else if (strcmp(name, "group") == 0)
 				{
-					_strncpy(conf->group, value, sizeof(conf->group));
+					my_strcpy(conf->group, value);
 				}
 			}
 			else if (section == server)
@@ -150,47 +151,42 @@ static int read_conf(const char *file, conf_t *conf)
 				}
 				if (strcmp(name, "address") == 0)
 				{
-					_strncpy(conf->server[conf->server_num - 1].address, value,
-					        sizeof(conf->server[conf->server_num - 1].address));
+					my_strcpy(conf->server[conf->server_num - 1].address, value);
 				}
 				else if (strcmp(name, "port") == 0)
 				{
-					_strncpy(conf->server[conf->server_num - 1].port, value,
-					        sizeof(conf->server[conf->server_num - 1].port));
+					my_strcpy(conf->server[conf->server_num - 1].port, value);
 				}
 				else if (strcmp(name, "key") == 0)
 				{
-					_strncpy(conf->server[conf->server_num - 1].key, value,
-					        sizeof(conf->server[conf->server_num - 1].key));
+					my_strcpy(conf->server[conf->server_num - 1].key, value);
 				}
 			}
 			else if (section == local)
 			{
 				if (strcmp(name, "address") == 0)
 				{
-					_strncpy(conf->local.address, value,
-					        sizeof(conf->local.address));
+					my_strcpy(conf->local.address, value);
 				}
 				else if (strcmp(name, "port") == 0)
 				{
-					_strncpy(conf->local.port, value, sizeof(conf->local.port));
+					my_strcpy(conf->local.port, value);
 				}
 			}
 			else if (section == redir)
 			{
 				if (strcmp(name, "address") == 0)
 				{
-					_strncpy(conf->redir.address, value,
-					        sizeof(conf->redir.address));
+					my_strcpy(conf->redir.address, value);
 				}
 				else if (strcmp(name, "port") == 0)
 				{
-					_strncpy(conf->redir.port, value, sizeof(conf->redir.port));
+					my_strcpy(conf->redir.port, value);
 				}
 			}
 			else
 			{
-				fprintf(stderr, "parse conf file failed at line: %d\n", line_num);
+				fprintf(stderr, "line %d: no section set\n", line_num);
 				fclose(f);
 				return -1;
 			}
@@ -200,24 +196,22 @@ static int read_conf(const char *file, conf_t *conf)
 
 	if (conf->user[0] == '\0')
 	{
-		_strncpy(conf->user, "nobody", sizeof(conf->user));
+		strcpy(conf->user, "nobody");
 	}
 	if (conf->server_num == 0)
 	{
-		fprintf(stderr, "no server specified\n");
+		fprintf(stderr, "no server set in config file\n");
 		return -1;
 	}
 	for (int i = 0; i < conf->server_num; i++)
 	{
 		if (conf->server[i].address[0] == '\0')
 		{
-			_strncpy(conf->server[i].address, "0.0.0.0",
-			         sizeof(conf->server[i].address));
+			strcpy(conf->server[i].address, "0.0.0.0");
 		}
 		if (conf->server[i].port[0] == '\0')
 		{
-			_strncpy(conf->server[i].port, "1205",
-			         sizeof(conf->server[i].port));
+			strcpy(conf->server[i].port, "1205");
 		}
 		else
 		{
@@ -235,14 +229,11 @@ static int read_conf(const char *file, conf_t *conf)
 				}
 				if (conf->server_num < MAX_SERVER)
 				{
-					_strncpy(conf->server[conf->server_num].address,
-					        conf->server[i].address,
-					        sizeof(conf->server[conf->server_num].address));
-					_strncpy(conf->server[conf->server_num].port, p1 + 1,
-					        sizeof(conf->server[conf->server_num].port));
-					_strncpy(conf->server[conf->server_num].key,
-					        conf->server[i].key,
-					        sizeof(conf->server[conf->server_num].key));
+					my_strcpy(conf->server[conf->server_num].address,
+					          conf->server[i].address);
+					my_strcpy(conf->server[conf->server_num].port, p1 + 1);
+					my_strcpy(conf->server[conf->server_num].key,
+					          conf->server[i].key);
 					conf->server_num++;
 				}
 				p1 = p2;
@@ -286,7 +277,7 @@ int parse_args(int argc, char **argv, conf_t *conf)
 		{
 			if (i + 2 > argc)
 			{
-				fprintf(stderr, "Missing filename after '%s'\n", argv[i]);
+				fprintf(stderr, "missing filename after '%s'\n", argv[i]);
 				return 1;
 			}
 			conf_file = argv[i + 1];
@@ -300,25 +291,25 @@ int parse_args(int argc, char **argv, conf_t *conf)
 		{
 			if (i + 2 > argc)
 			{
-				fprintf(stderr, "Missing filename after '%s'\n", argv[i]);
+				fprintf(stderr, "missing filename after '%s'\n", argv[i]);
 				return 1;
 			}
-			_strncpy(conf->pidfile, argv[i + 1], sizeof(conf->pidfile));
+			my_strcpy(conf->pidfile, argv[i + 1]);
 			i++;
 		}
 		else if (strcmp(argv[i], "--logfile") == 0)
 		{
 			if (i + 2 > argc)
 			{
-				fprintf(stderr, "Missing filename after '%s'\n", argv[i]);
+				fprintf(stderr, "missing filename after '%s'\n", argv[i]);
 				return 1;
 			}
-			_strncpy(conf->logfile, argv[i + 1], sizeof(conf->logfile));
+			my_strcpy(conf->logfile, argv[i + 1]);
 			i++;
 		}
 		else
 		{
-			fprintf(stderr, "Invalid option: %s\n", argv[i]);
+			fprintf(stderr, "invalid option: %s\n", argv[i]);
 			return 1;
 		}
 	}
