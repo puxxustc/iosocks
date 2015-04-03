@@ -3,15 +3,13 @@
 [![Release](https://img.shields.io/github/release/XiaoxiaoPu/iosocks.svg?style=flat)](https://github.com/XiaoxiaoPu/iosocks/releases/latest)
 [![License](https://img.shields.io/badge/license-GPL%203-blue.svg?style=flat)](http://www.gnu.org/licenses/gpl.html)
 [![Build Status](https://travis-ci.org/XiaoxiaoPu/iosocks.svg?branch=master)](https://travis-ci.org/XiaoxiaoPu/iosocks)
-[![Coverage](https://jenkins.xiaoxiao.im/job/iosocks/ws/.coverage.svg)](https://jenkins.xiaoxiao.im/job/iosocks/ws/src/index.html)
+[![Build Status](https://jenkins.xiaoxiao.im/buildStatus/icon?job=iosocks)](https://jenkins.xiaoxiao.im/job/iosocks/)
 
 A lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent TCP proxy.
 
 ## Build ##
 
-### Build with system-wide libev ###
-
-1. install libev
+1. install libev (optional)
 
 	```bash
 	# Archlinux
@@ -36,21 +34,6 @@ A lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent TCP proxy.
 	sudo make install
 	```
 
-### Build with embeded libev (standalone build) ###
-
-1. configure and make
-
-	```bash
-	autoreconf -if
-	./.standalone.sh --prefix=/usr --sysconfdir=/etc
-	```
-
-2. install
-
-	```bash
-	sudo make install
-	```
-
 ## Cross compile ##
 
 1. setup cross compile tool chain
@@ -59,64 +42,13 @@ A lightweight tunnel proxy, provides a SOCKS5 proxy and a transparent TCP proxy.
 
 	```bash
 	autoreconf -if
-	./.standalone.sh --host=arm-unknown-linux-gnueabihf \
+	./configure --host=arm-unknown-linux-gnueabihf \
 	    --prefix=/usr --sysconfdir=/etc
 	```
 
 ## Usage ##
 
-**ioserver**
-
-runs on a remote server to provide secured tunnel service.
-
-```bash
-usage: ioserver
-  -h, --help        show this help
-  -c <config_file>  config file
-```
-
-**ioclient**
-
-A standard SOCKS5 proxy.
-
-```bash
-usage: ioclient
-  -h, --help        show this help
-  -c <config_file>  config file
-```
-
-**ioredir**
-
-A transparent TCP proxy.
-
-```bash
-usage: ioredir
-  -h, --help        show this help
-  -c <config_file>  config file
-```
-
-**sample config file**
-
-```ini
-[server]
-address=192.168.1.1
-port=1205, 80, 443
-key=key1
-
-[server]
-address=192.168.1.2
-port=1205, 80, 443
-key=key2
-
-[local]
-address=127.0.0.1
-port=1080
-
-[redir]
-address=127.0.0.1
-port=1081
-iptables=true
-```
+See man:iosocks(8).
 
 ## Advanced usage ##
 

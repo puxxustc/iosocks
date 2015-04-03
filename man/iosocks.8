@@ -1,4 +1,4 @@
-.TH IOSOCKS 8 "Feb 25, 2015"
+.TH IOSOCKS 8 "Apr 03, 2015"
 .SH NAME
 iosocks \- A lightweight tunnel proxy
 
@@ -19,19 +19,19 @@ iosocks \- A lightweight tunnel proxy
 .SH OPTIONS
 .TP
 .B \-h, \-\-help
-Print a help message and exit.
+print a help message and exit.
 .TP
 .B \-c, \-\-config \fI<file>\fR
-Config file.
+config file.
 .TP
 .B \-d, \-\-daemon
-Daemonize after initialization.
+daemonize after startup.
 .TP
 .B \-p, \-\-pidfile \fI<file>\fR
 PID file.
 .TP
 .B \-\-logfile \fI<file>\fR
-Log file.
+log file.
 
 .SH CONFIG FILE
 The syntax of the config file is inspired by Microsoft Windows \fI.ini\fP files.
@@ -42,11 +42,7 @@ The syntax of the config file is inspired by Microsoft Windows \fI.ini\fP files.
 .TP
 \fIuser=\fR
 .br
-Set to specified user after bind, default: nobody
-.TP
-\fIgroup=\fR
-.br
-Set to specified group after bind
+user to set privilege to, default: nobody
 
 .SS SERVER
 .TP
@@ -54,44 +50,43 @@ Set to specified group after bind
 .TP
 \fIaddress=\fR
 .br
-Server address, default: 0.0.0.0
+server address, default: 0.0.0.0
 .TP
 \fIport=\fR
 .br
-Server port, default: 1205
+server port, default: 1205
 .TP
 \fIkey=\fR
 .br
-Encryption key
+secret key for crypto
 
 .SS LOCAL
 [local] section defines a local client.
 .TP
 .B \fIaddress=\fR
-Local address, default: 127.0.0.1
+local address, default: 127.0.0.1
 .br
 .TP
 .B \fIport=\fR
 .br
-Local port, default: 1080
+local port, default: 1080
 
 .SS REDIR
 [redir] section define a transparent TCP proxy
 .TP
 .B \fIaddress=\fR
-Local address, default: 127.0.0.1
+local address, default: 127.0.0.1
 .br
 .TP
 .B \fIport=\fR
 .br
-Local port, default: 1081
+local port, default: 1081
 
 .SH EXAMPLE
 Here is a sample config file:
 
     [global]
     user=nobody
-    group=nobody
 
     [server]
     address=192.168.1.1
