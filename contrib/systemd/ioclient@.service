@@ -5,7 +5,8 @@ Documentation=man:iosocks(8)
 
 [Service]
 Type=forking
-ExecStart=/usr/bin/ioclient -d -c /etc/iosocks/%i.conf --pidfile /run/ioclient.pid --logfile /var/log/ioclient.log
+KillSignal=SIGINT
+ExecStart=/usr/bin/ioclient -d -c /etc/iosocks/%i.conf --pidfile /run/ioclient@%i.pid --logfile /var/log/ioclient@%i.log
 PIDFile=/run/ioclient.pid
 
 [Install]

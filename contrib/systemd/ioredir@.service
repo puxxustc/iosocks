@@ -5,7 +5,8 @@ Documentation=man:iosocks(8)
 
 [Service]
 Type=forking
-ExecStart=/usr/bin/ioredir -d -c /etc/iosocks/%i.conf --pidfile /run/ioredir.pid --logfile /var/log/ioredir.log
+KillSignal=SIGINT
+ExecStart=/usr/bin/ioredir -d -c /etc/iosocks/%i.conf --pidfile /run/ioredir@%i.pid --logfile /var/log/ioredir@%i.log
 PIDFile=/run/ioredir.pid
 
 [Install]
