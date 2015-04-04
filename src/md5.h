@@ -1,5 +1,5 @@
 /*
- * encrypt.h - encryption and decryption
+ * md5.h - the MD5 Message-Digest Algorithm (RFC 1321)
  *
  * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -17,28 +17,10 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef ENCRYPT_H
-#define ENCRYPT_H
+#ifndef MD5_H
+#define MD5_H
 
-#include "rc4.h"
+#include <stddef.h>
+extern void md5(void *digest, const void *in, size_t len);
 
-typedef enum
-{
-	enc_rc4 = 0
-} enc_method_t;
-
-typedef struct
-{
-	enc_method_t method;
-	union
-	{
-		rc4_evp_t rc4;
-	} enc_evp, dec_evp;
-} enc_evp_t;
-
-extern void enc_init(enc_evp_t *evp, enc_method_t method, const void *key, size_t key_len);
-extern void io_encrypt(void *stream, size_t len, enc_evp_t *evp);
-extern void io_decrypt(void *stream, size_t len, enc_evp_t *evp);
-
-
-#endif // ENCRYPT_H
+#endif // MD5_H

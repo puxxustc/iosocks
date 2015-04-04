@@ -1,5 +1,5 @@
 /*
- * utils.h - Some util functions
+ * async_resolv.h - async resolv
  *
  * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -17,19 +17,14 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef ASYNC_RESOLV_H
+#define ASYNC_RESOLV_H
 
 #include <sys/socket.h>
 
-extern ssize_t rand_bytes(void *stream, size_t len);
-extern int setnonblock(int fd);
-extern int settimeout(int fd);
-extern int setreuseaddr(int fd);
-extern int setkeepalive(int fd);
-extern int getdestaddr(int fd, struct sockaddr *addr, socklen_t *addrlen);
-extern int getsockerror(int fd);
-extern int runas(const char *user);
-extern int daemonize(const char *pidfile, const char *logfile);
+extern int resolv_init(void);
+extern void async_resolv(const char *host, const char *port,
+                         void (*cb)(struct addrinfo *, void *),
+                         void *data);
 
-#endif // UTILS_H
+#endif // ASYNC_RESOLV_H

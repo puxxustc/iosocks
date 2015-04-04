@@ -1,5 +1,5 @@
 /*
- * utils.h - Some util functions
+ * encrypt.h - encryption and decryption
  *
  * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -17,19 +17,27 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef CRYPTO_H
+#define CRYPTO_H
 
-#include <sys/socket.h>
+#include <stdint.h>
 
-extern ssize_t rand_bytes(void *stream, size_t len);
-extern int setnonblock(int fd);
-extern int settimeout(int fd);
-extern int setreuseaddr(int fd);
-extern int setkeepalive(int fd);
-extern int getdestaddr(int fd, struct sockaddr *addr, socklen_t *addrlen);
-extern int getsockerror(int fd);
-extern int runas(const char *user);
-extern int daemonize(const char *pidfile, const char *logfile);
 
-#endif // UTILS_H
+typedef struct
+{
+	int i;
+	int j;
+	uint8_t s[256];
+} rc4_evp_t;
+
+typedef struct
+{
+	rc4_evp_t enc, dec;
+} crypto_evp_t;
+
+extern void crypto_init(crypto_evp_t *evp, const void *key, const void *iv);
+extern void crypto_encrypt(void *buf, size_t len, crypto_evp_t *evp);
+extern void crypto_decrypt(void *buf, size_t len, crypto_evp_t *evp);
+
+
+#endif // CRYPTO_H

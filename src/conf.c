@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "conf.h"
+#include "md5.h"
 
 #define MAX_LINE 1024
 
@@ -155,7 +156,7 @@ static int read_conf(const char *file, conf_t *conf)
 				}
 				else if (strcmp(name, "key") == 0)
 				{
-					my_strcpy(conf->server[conf->server_num - 1].key, value);
+					md5(conf->server[conf->server_num - 1].key, value, strlen(value));
 				}
 			}
 			else if (section == local)

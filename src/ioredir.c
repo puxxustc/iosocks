@@ -31,64 +31,42 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
+#include <async_connect.h>
 #include "conf.h"
-#include "encrypt.h"
+#include "crypto.h"
 #include "log.h"
-#include "sha512.h"
+#include "md5.h"
+#include "relay.h"
 #include "utils.h"
 
 #define UNUSED(x) do {(void)(x);} while (0)
 
-// 缓冲区大小
-#define BUF_SIZE 8192
-
 // 最大连接尝试次数
 #define MAX_TRY 4
 
-// 魔数
-#define MAGIC 0x526f6e61
-
-#ifndef EAGAIN
-#define EAGAIN EWOULDBLOCK
-#endif
-#ifndef EWOULDBLOCK
-#define EWOULDBLOCK EAGAIN
-#endif
-
-// 连接控制块结构
 typedef struct
 {
-	ev_io w_local_read;
-	ev_io w_local_write;
-	ev_io w_remote_read;
-	ev_io w_remote_write;
-	ssize_t rx_bytes;
-	ssize_t tx_bytes;
-	ssize_t rx_offset;
-	ssize_t tx_offset;
 	int sock_local;
 	int sock_remote;
 	int server_id;
 	int server_tried;
-	char dst_addr[257];
-	char dst_port[15];
-	enc_evp_t enc_evp;
-	uint8_t rx_buf[BUF_SIZE];
-	uint8_t tx_buf[BUF_SIZE];
+	char host[257];
+	char port[15];
+	crypto_evp_t evp;
+	ev_io w_write;
+	ssize_t len;
+	uint8_t buf[16 + 257 + 15];
 } ctx_t;
 
 static void timer_cb(EV_P_ ev_timer *w, int revents);
 static void signal_cb(EV_P_ ev_signal *w, int revents);
 static void accept_cb(EV_P_ ev_io *w, int revents);
-static void connect_cb(EV_P_ ev_io *w, int revents);
 static void iosocks_send_cb(EV_P_ ev_io *w, int revents);
-static void local_read_cb(EV_P_ ev_io *w, int revents);
-static void local_write_cb(EV_P_ ev_io *w, int revents);
-static void remote_read_cb(EV_P_ ev_io *w, int revents);
-static void remote_write_cb(EV_P_ ev_io *w, int revents);
 static int  select_server(void);
-static void connect_server(EV_P_ ctx_t *ctx);
-static void cleanup(EV_P_ ctx_t *ctx);
+static void connect_server(ctx_t *ctx);
+
+// ev loop
+struct ev_loop *loop;
 
 // 配置信息
 static conf_t conf;
@@ -99,7 +77,6 @@ static struct
 	struct sockaddr_storage addr;
 	socklen_t addrlen;
 	char *key;
-	size_t key_len;
 	time_t health;		// 0 可用，非 0 不可用
 } servers[MAX_SERVER];
 
@@ -110,7 +87,7 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	// Daemonize
+	// daemonize
 	if (conf.daemon)
 	{
 		if (daemonize(conf.pidfile, conf.logfile) != 0)
@@ -126,7 +103,6 @@ int main(int argc, char **argv)
 	{
 		servers[i].health = 0;
 		servers[i].key = conf.server[i].key;
-		servers[i].key_len = strlen(servers[i].key);
 		bzero(&hints, sizeof(struct addrinfo));
 		hints.ai_family = AF_UNSPEC;
 		hints.ai_socktype = SOCK_STREAM;
@@ -170,7 +146,7 @@ int main(int argc, char **argv)
 	}
 
 	// 初始化 ev
-	struct ev_loop *loop = EV_DEFAULT;
+	loop = EV_DEFAULT;
 	ev_signal w_sigint;
 	ev_signal w_sigterm;
 	ev_signal_init(&w_sigint, signal_cb, SIGINT);
@@ -184,7 +160,7 @@ int main(int argc, char **argv)
 	ev_timer_init(&w_timer, timer_cb, 5.0, 5.0);
 	ev_timer_start(EV_A_ &w_timer);
 
-	// 切换用户
+	// drop root privilege
 	if (runas(conf.user) != 0)
 	{
 		ERROR("runas");
@@ -227,6 +203,7 @@ static void signal_cb(EV_P_ ev_signal *w, int revents)
 
 static void accept_cb(EV_P_ ev_io *w, int revents)
 {
+	UNUSED(loop);
 	UNUSED(revents);
 
 	ctx_t *ctx = (ctx_t *)malloc(sizeof(ctx_t));
@@ -258,34 +235,67 @@ static void accept_cb(EV_P_ ev_io *w, int revents)
 	}
 	if (addr.ss_family == AF_INET)
 	{
-		inet_ntop(AF_INET, &(((struct sockaddr_in *)&addr)->sin_addr), ctx->dst_addr, INET_ADDRSTRLEN);
-		sprintf(ctx->dst_port, "%u", ntohs(((struct sockaddr_in *)&addr)->sin_port));
+		inet_ntop(AF_INET, &(((struct sockaddr_in *)&addr)->sin_addr),
+		          ctx->host, INET_ADDRSTRLEN);
+		sprintf(ctx->port, "%u", ntohs(((struct sockaddr_in *)&addr)->sin_port));
 	}
 	else
 	{
-		inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&addr)->sin6_addr), ctx->dst_addr, INET6_ADDRSTRLEN);
-		sprintf(ctx->dst_port, "%u", ntohs(((struct sockaddr_in6 *)&addr)->sin6_port));
+		inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&addr)->sin6_addr),
+		          ctx->host, INET6_ADDRSTRLEN);
+		sprintf(ctx->port, "%u", ntohs(((struct sockaddr_in6 *)&addr)->sin6_port));
 	}
 
 	// 连接 iosocks server
 	ctx->server_tried = 0;
-	connect_server(EV_A_ ctx);
+	connect_server(ctx);
 }
 
-static void connect_cb(EV_P_ ev_io *w, int revents)
+static void connect_cb(int sock, void *data)
 {
-	ctx_t *ctx = (ctx_t *)(w->data);
+	ctx_t *ctx = (ctx_t *)(data);
 
-	UNUSED(revents);
 	assert(ctx != NULL);
 
-	ev_io_stop(EV_A_ w);
-
-	if (geterror(w->fd) == 0)
+	if (sock > 0)
 	{
 		// 连接成功
-		ev_io_init(&ctx->w_remote_write, iosocks_send_cb, ctx->sock_remote, EV_WRITE);
-		ev_io_start(EV_A_ &ctx->w_remote_write);
+		ctx->sock_remote = sock;
+
+		// IoSocks Request
+		// +------+------+------+
+		// |  IV  | HOST | PORT |
+		// +------+------+------+
+		// |  16  | 257  |  15  |
+		// +------+------+------+
+		bzero(ctx->buf, 16 + 257 + 15);
+		strcpy((char *)ctx->buf + 16, ctx->host);
+		strcpy((char *)ctx->buf + 16 + 257, ctx->port);
+		md5(ctx->buf, ctx->buf + 16, 257 + 15);
+		crypto_init(&(ctx->evp), servers[ctx->server_id].key, ctx->buf);
+		crypto_encrypt(ctx->buf + 16, 257 + 15, &(ctx->evp));
+		ctx->len = 16 + 257 + 15;
+		ssize_t n = send(ctx->sock_remote, ctx->buf, ctx->len, MSG_NOSIGNAL);
+		if (n < 0)
+		{
+			if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+			{
+				ev_io_init(&(ctx->w_write), iosocks_send_cb, ctx->sock_remote, EV_WRITE);
+				ctx->w_write.data = (void *)ctx;
+				ev_io_start(EV_A_ &ctx->w_write);
+			}
+			else
+			{
+				close(ctx->sock_local);
+				close(ctx->sock_remote);
+				free(ctx);
+			}
+		}
+		else
+		{
+			relay(ctx->sock_local, ctx->sock_remote, &(ctx->evp));
+			free(ctx);
+		}
 	}
 	else
 	{
@@ -295,7 +305,7 @@ static void connect_cb(EV_P_ ev_io *w, int revents)
 		{
 			LOG("connect to ioserver failed, try again");
 			close(ctx->sock_remote);
-			connect_server(EV_A_ ctx);
+			connect_server(ctx);
 		}
 		else
 		{
@@ -316,186 +326,41 @@ static void iosocks_send_cb(EV_P_ ev_io *w, int revents)
 
 	ev_io_stop(EV_A_ w);
 
-	ssize_t n = send(ctx->sock_remote, ctx->tx_buf, ctx->tx_bytes, MSG_NOSIGNAL);
-	if (n != ctx->tx_bytes)
+	ssize_t n = send(ctx->sock_remote, ctx->buf, ctx->len, MSG_NOSIGNAL);
+	if (n < 0)
 	{
-		if (n < 0)
-		{
-			ERROR("send");
-		}
 		close(ctx->sock_local);
 		close(ctx->sock_remote);
 		free(ctx);
 		return;
 	}
-
-	ev_io_init(&ctx->w_local_read, local_read_cb, ctx->sock_local, EV_READ);
-	ev_io_init(&ctx->w_local_write, local_write_cb, ctx->sock_local, EV_WRITE);
-	ev_io_init(&ctx->w_remote_read, remote_read_cb, ctx->sock_remote, EV_READ);
-	ev_io_init(&ctx->w_remote_write, remote_write_cb, ctx->sock_remote, EV_WRITE);
-	ctx->w_local_read.data = (void *)ctx;
-	ctx->w_local_write.data = (void *)ctx;
-	ctx->w_remote_read.data = (void *)ctx;
-	ev_io_start(EV_A_ &ctx->w_local_read);
-	ev_io_start(EV_A_ &ctx->w_remote_read);
-}
-
-static void local_read_cb(EV_P_ ev_io *w, int revents)
-{
-	ctx_t *ctx = (ctx_t *)(w->data);
-
-	UNUSED(revents);
-	assert(ctx != NULL);
-
-	ctx->tx_bytes = recv(ctx->sock_local, ctx->tx_buf, BUF_SIZE, 0);
-	if (ctx->tx_bytes <= 0)
-	{
-		if (ctx->tx_bytes < 0)
-		{
-			LOG("client reset");
-		}
-		cleanup(EV_A_ ctx);
-		return;
-	}
-	io_encrypt(ctx->tx_buf, ctx->tx_bytes, &ctx->enc_evp);
-	ssize_t n = send(ctx->sock_remote, ctx->tx_buf, ctx->tx_bytes, MSG_NOSIGNAL);
-	if (n < 0)
-	{
-		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-		{
-			ctx->tx_offset = 0;
-		}
-		else
-		{
-			ERROR("send");
-			cleanup(EV_A_ ctx);
-			return;
-		}
-	}
-	else if (n < ctx->tx_bytes)
-	{
-		ctx->tx_offset = n;
-		ctx->tx_bytes -= n;
-	}
 	else
 	{
-		return;
-	}
-	ev_io_start(EV_A_ &ctx->w_remote_write);
-	ev_io_stop(EV_A_ w);
-}
-
-static void local_write_cb(EV_P_ ev_io *w, int revents)
-{
-	ctx_t *ctx = (ctx_t *)w->data;
-
-	UNUSED(revents);
-	assert(ctx != NULL);
-	assert(ctx->rx_bytes > 0);
-
-	ssize_t n = send(ctx->sock_local, ctx->rx_buf + ctx->rx_offset, ctx->rx_bytes, MSG_NOSIGNAL);
-	if (n < 0)
-	{
-		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-		{
-			return;
-		}
-		else
-		{
-			ERROR("send");
-			cleanup(EV_A_ ctx);
-			return;
-		}
-	}
-	else if (n < ctx->rx_bytes)
-	{
-		ctx->rx_offset += n;
-		ctx->rx_bytes -= n;
-	}
-	else
-	{
-		ev_io_start(EV_A_ &ctx->w_remote_read);
-		ev_io_stop(EV_A_ w);
+		relay(ctx->sock_local, ctx->sock_remote, &(ctx->evp));
+		free(ctx);
 	}
 }
 
-static void remote_read_cb(EV_P_ ev_io *w, int revents)
+static void connect_server(ctx_t *ctx)
 {
-	ctx_t *ctx = (ctx_t *)(w->data);
-
-	UNUSED(revents);
-	assert(ctx != NULL);
-
-	ctx->rx_bytes = recv(ctx->sock_remote, ctx->rx_buf, BUF_SIZE, 0);
-	if (ctx->rx_bytes <= 0)
+	// 随机选择一个 server
+	ctx->server_id = select_server();
+	if (ctx->server_id < 0)
 	{
-		if (ctx->rx_bytes < 0)
-		{
-			LOG("server reset");
-		}
-		cleanup(EV_A_ ctx);
+		LOG("no available server, abort");
+		close(ctx->sock_local);
+		free(ctx);
 		return;
 	}
-	io_decrypt(ctx->rx_buf, ctx->rx_bytes, &ctx->enc_evp);
-	ssize_t n = send(ctx->sock_local, ctx->rx_buf, ctx->rx_bytes, MSG_NOSIGNAL);
-	if (n < 0)
-	{
-		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-		{
-			ctx->rx_offset = 0;
-		}
-		else
-		{
-			ERROR("send");
-			cleanup(EV_A_ ctx);
-			return;
-		}
-	}
-	else if (n < ctx->rx_bytes)
-	{
-		ctx->rx_offset = n;
-		ctx->rx_bytes -= n;
-	}
-	else
-	{
-		return;
-	}
-	ev_io_start(EV_A_ &ctx->w_local_write);
-	ev_io_stop(EV_A_ w);
-}
+	ctx->server_tried++;
+	LOG("connect %s:%s via %s:%s",
+	    ctx->host, ctx->port,
+	    conf.server[ctx->server_id].address,
+	    conf.server[ctx->server_id].port);
 
-static void remote_write_cb(EV_P_ ev_io *w, int revents)
-{
-	ctx_t *ctx = (ctx_t *)(w->data);
-
-	UNUSED(revents);
-	assert(ctx != NULL);
-	assert(ctx->tx_bytes > 0);
-
-	ssize_t n = send(ctx->sock_remote, ctx->tx_buf + ctx->tx_offset, ctx->tx_bytes, MSG_NOSIGNAL);
-	if (n < 0)
-	{
-		if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
-		{
-			return;
-		}
-		else
-		{
-			ERROR("send");
-			cleanup(EV_A_ ctx);
-			return;
-		}
-	}
-	else if (n < ctx->tx_bytes)
-	{
-		ctx->tx_offset += n;
-		ctx->tx_bytes -= n;
-	}
-	else
-	{
-		ev_io_start(EV_A_ &ctx->w_local_read);
-		ev_io_stop(EV_A_ w);
-	}
+	// 建立远程连接
+	async_connect((struct sockaddr *)&servers[ctx->server_id].addr,
+	              servers[ctx->server_id].addrlen, connect_cb, ctx);
 }
 
 static int select_server(void)
@@ -513,92 +378,4 @@ static int select_server(void)
 		}
 	}
 	return -1;
-}
-
-static void connect_server(EV_P_ ctx_t *ctx)
-{
-	// 随机选择一个 server
-	ctx->server_id = select_server();
-	if (ctx->server_id < 0)
-	{
-		LOG("no available server, abort");
-		close(ctx->sock_local);
-		free(ctx);
-		return;
-	}
-	ctx->server_tried++;
-	LOG("connect %s:%s via %s:%s",
-	    ctx->dst_addr, ctx->dst_port,
-	    conf.server[ctx->server_id].address,
-	    conf.server[ctx->server_id].port);
-
-	// IoSocks Request
-	// +-------+------+------+------+
-	// | MAGIC | HOST | PORT |  IV  |
-	// +-------+------+------+------+
-	// |   4   | 257  |  15  | 236  |
-	// +-------+------+------+------+
-	uint8_t key[64];
-	rand_bytes(ctx->rx_buf, 236);
-	memcpy(ctx->rx_buf + 236, servers[ctx->server_id].key, servers[ctx->server_id].key_len);
-	sha512(key, ctx->rx_buf, 236 + servers[ctx->server_id].key_len);
-	bzero(ctx->tx_buf, 276);
-	*((uint32_t *)(ctx->tx_buf)) = htonl(MAGIC);
-	strcpy((char *)ctx->tx_buf + 4, ctx->dst_addr);
-	strcpy((char *)ctx->tx_buf + 261, ctx->dst_port);
-	memcpy(ctx->tx_buf + 276, ctx->rx_buf, 236);
-	enc_init(&ctx->enc_evp, enc_rc4, key, 64);
-	io_encrypt(ctx->tx_buf, 276, &ctx->enc_evp);
-	ctx->tx_bytes = 512;
-
-	// 建立远程连接
-	ctx->sock_remote = socket(servers[ctx->server_id].addr.ss_family, SOCK_STREAM, IPPROTO_TCP);
-	if (ctx->sock_remote < 0)
-	{
-		ERROR("socket");
-		close(ctx->sock_local);
-		free(ctx);
-		return;
-	}
-	setnonblock(ctx->sock_remote);
-	settimeout(ctx->sock_remote);
-	setkeepalive(ctx->sock_remote);
-	if (connect(ctx->sock_remote,
-	        (struct sockaddr *)&servers[ctx->server_id].addr,
-	        servers[ctx->server_id].addrlen) != 0)
-	{
-		if (errno != EINPROGRESS)
-		{
-			// 连接失败
-			servers[ctx->server_id].health = time(NULL);
-			if (ctx->server_tried < MAX_TRY)
-			{
-				LOG("connect to ioserver failed, try again");
-				close(ctx->sock_remote);
-				connect_server(EV_A_ ctx);
-			}
-			else
-			{
-				LOG("connect to ioserver failed, abort");
-				close(ctx->sock_local);
-				close(ctx->sock_remote);
-				free(ctx);
-			}
-			return;
-		}
-	}
-	ev_io_init(&ctx->w_remote_write, connect_cb, ctx->sock_remote, EV_WRITE);
-	ctx->w_remote_write.data = (void *)ctx;
-	ev_io_start(EV_A_ &ctx->w_remote_write);
-}
-
-static void cleanup(EV_P_ ctx_t *ctx)
-{
-	ev_io_stop(EV_A_ &ctx->w_local_read);
-	ev_io_stop(EV_A_ &ctx->w_local_write);
-	ev_io_stop(EV_A_ &ctx->w_remote_read);
-	ev_io_stop(EV_A_ &ctx->w_remote_write);
-	close(ctx->sock_local);
-	close(ctx->sock_remote);
-	free(ctx);
 }

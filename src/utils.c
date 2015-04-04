@@ -114,7 +114,7 @@ int getdestaddr(int fd, struct sockaddr *addr, socklen_t *addrlen)
 	return -1;
 }
 
-int geterror(int fd)
+int getsockerror(int fd)
 {
 	int error = 0;
 	socklen_t len = sizeof(int);

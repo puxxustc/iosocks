@@ -1,5 +1,5 @@
 /*
- * rc4.c - RC4 stream encryption
+ * encrypt.c - encryption and decryption
  *
  * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -17,16 +17,15 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdint.h>
-#include "rc4.h"
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <assert.h>
+#include <stddef.h>
+#include <string.h>
+#include "crypto.h"
+#include "md5.h"
 
 #define SWAP(x, y) do {register uint8_t tmp = (x); (x) = (y); (y) = tmp; } while (0)
 
-void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len)
+static void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len)
 {
 	register int i, j;
 	register uint8_t *s = evp->s;
@@ -43,7 +42,7 @@ void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len)
 	evp->j = 0;
 }
 
-void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
+static void rc4_encrypt(void *stream, size_t len, rc4_evp_t *evp)
 {
 #if defined(__GNUC__)
 #  if defined(__amd64__) || defined(__x86_64__)
@@ -231,4 +230,26 @@ void rc4_enc(void *stream, size_t len, rc4_evp_t *evp)
 	evp->i = i;
 	evp->j = j;
 #endif
+}
+
+#define rc4_decrypt rc4_encrypt
+
+void crypto_init(crypto_evp_t *evp, const void *key,const void *iv)
+{
+	uint8_t buf[32];
+	memcpy(buf, iv, 16);
+	memcpy(buf + 16, key, 16);
+	md5(buf, buf, 32);
+	rc4_init(&(evp->enc), buf, 16);
+	evp->dec = evp->enc;
+}
+
+void crypto_encrypt(void *buf, size_t len, crypto_evp_t *evp)
+{
+	rc4_encrypt(buf, len, &(evp->enc));
+}
+
+void crypto_decrypt(void *buf, size_t len, crypto_evp_t *evp)
+{
+	rc4_decrypt(buf, len, &(evp->dec));
 }

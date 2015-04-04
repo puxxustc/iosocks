@@ -34,7 +34,7 @@ typedef struct
 	{
 		char address[128];
 		char port[128];
-		char key[128];
+		char key[16];
 	} server[MAX_SERVER];
 	struct
 	{

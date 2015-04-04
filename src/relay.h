@@ -1,5 +1,5 @@
 /*
- * utils.h - Some util functions
+ * relay.h - TCP relay
  *
  * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -17,19 +17,11 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef UTILS_H
-#define UTILS_H
 
-#include <sys/socket.h>
+#ifndef RELAY_H
+#define RELAY_H
 
-extern ssize_t rand_bytes(void *stream, size_t len);
-extern int setnonblock(int fd);
-extern int settimeout(int fd);
-extern int setreuseaddr(int fd);
-extern int setkeepalive(int fd);
-extern int getdestaddr(int fd, struct sockaddr *addr, socklen_t *addrlen);
-extern int getsockerror(int fd);
-extern int runas(const char *user);
-extern int daemonize(const char *pidfile, const char *logfile);
+#include "crypto.h"
+extern void relay(int local, int remote, crypto_evp_t *evp);
 
-#endif // UTILS_H
+#endif // RELAY_H

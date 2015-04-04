@@ -1,5 +1,5 @@
 /*
- * rc4.h - RC4 stream encryption
+ * async_connect.h - async connect
  *
  * Copyright (C) 2014 - 2015, Xiaoxiao <i@xiaoxiao.im>
  *
@@ -17,21 +17,12 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef RC4_H
-#define RC4_H
+#ifndef ASYNC_CONNECT_H
+#define ASYNC_CONNECT_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include <sys/socket.h>
 
-typedef struct
-{
-	int i;
-	int j;
-	uint8_t s[256];
-} rc4_evp_t;
+extern void async_connect(const struct sockaddr *addr, socklen_t addrlen,
+                          void (*cb)(int, void *), void *data);
 
-extern void rc4_init(rc4_evp_t *evp, const void *key, size_t key_len);
-extern void rc4_enc(void *stream, size_t len, rc4_evp_t *evp);
-#define rc4_dec rc4_enc
-
-#endif // RC4_H
+#endif // ASYNC_CONNECT_H
