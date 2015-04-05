@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_INIT([iosocks], [1.2.2], [https://github.com/XiaoxiaoPu/iosocks/issues], [iosocks], [https://github.com/XiaoxiaoPu/iosocks])
+AC_INIT([iosocks], [1.3.0], [https://github.com/XiaoxiaoPu/iosocks/issues], [iosocks], [https://github.com/XiaoxiaoPu/iosocks])
 AC_CONFIG_SRCDIR([iosocks])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
