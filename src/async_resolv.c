@@ -71,7 +71,7 @@ void async_resolv(const char *host, const char *port,
 	if (ctx == NULL)
 	{
 		LOG("out of memory");
-		(ctx->cb)(NULL, data);
+		(cb)(NULL, data);
 		return;
 	}
 
