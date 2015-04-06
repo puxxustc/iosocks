@@ -1,7 +1,7 @@
 # Maintainer:  Xiaoxiao Pu <i@xiaoxiao.im>
 
 pkgname=iosocks-git
-pkgver=r125.b9d3518
+pkgver=r133.8cad435
 pkgrel=1
 pkgdesc="A lightweight tunnel proxy"
 arch=('i686' 'x86_64')
@@ -20,10 +20,8 @@ pkgver() {
 
 build() {
 	cd "${srcdir}/iosocks"
-	./configure \
-	  --prefix=/usr \
-	  --sysconfdir=/etc \
-	  --localstatedir=/var
+	autoreconf -if
+	./configure --prefix=/usr --sysconfdir=/etc
 	make
 }
 

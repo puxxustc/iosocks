@@ -7,7 +7,7 @@ Documentation=man:iosocks(8)
 Type=forking
 KillSignal=SIGINT
 ExecStart=/usr/bin/ioredir -d -c /etc/iosocks/%i.conf --pidfile /run/ioredir@%i.pid --logfile /var/log/ioredir@%i.log
-PIDFile=/run/ioredir.pid
+PIDFile=/run/ioredir@%i.pid
 
 [Install]
 WantedBy=multi-user.target

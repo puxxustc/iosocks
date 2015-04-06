@@ -7,7 +7,7 @@ Documentation=man:iosocks(8)
 Type=forking
 KillSignal=SIGINT
 ExecStart=/usr/bin/ioclient -d -c /etc/iosocks/%i.conf --pidfile /run/ioclient@%i.pid --logfile /var/log/ioclient@%i.log
-PIDFile=/run/ioclient.pid
+PIDFile=/run/ioclient@%i.pid
 
 [Install]
 WantedBy=multi-user.target

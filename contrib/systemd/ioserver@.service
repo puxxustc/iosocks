@@ -7,7 +7,7 @@ Documentation=man:iosocks(8)
 Type=forking
 KillSignal=SIGINT
 ExecStart=/usr/bin/ioserver -d -c /etc/iosocks/%i.conf --pidfile /run/ioserver@%i.pid --logfile /var/log/ioserver@%i.log
-PIDFile=/run/ioserver.pid
+PIDFile=/run/ioserver@%i.pid
 
 [Install]
 WantedBy=multi-user.target
