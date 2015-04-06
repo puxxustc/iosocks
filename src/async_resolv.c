@@ -68,6 +68,14 @@ void async_resolv(const char *host, const char *port,
 {
 	ctx_t *ctx = (ctx_t *)malloc(sizeof(ctx_t));
 
+	if (ctx == NULL)
+	{
+		LOG("out of memory");
+		(ctx->cb)(NULL, data);
+		return;
+	}
+
+	bzero(&(ctx->hints), sizeof(ctx->hints));
 	ctx->hints.ai_family = AF_UNSPEC;
 	ctx->hints.ai_socktype = SOCK_STREAM;
 	strcpy(ctx->host, host);
